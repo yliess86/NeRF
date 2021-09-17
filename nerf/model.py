@@ -30,8 +30,8 @@ class NeRF(Module):
         self.depth = depth
 
         fc = [(self.width, self.width) for _ in range(self.depth - 1)]
-        fc_1 = [(self.phi_x_dim, self.width)] + fc
-        fc_2 = [(self.phi_x_dim + self.width, self.width)] + fc
+        fc_1 = [(self.phi_x_dim * 2, self.width)] + fc
+        fc_2 = [(self.phi_x_dim * 2 + self.width, self.width)] + fc
 
         self.phi_x = FourierFeatures(3, self.phi_x_dim)
         self.phi_d = FourierFeatures(3, self.phi_d_dim)
@@ -43,7 +43,7 @@ class NeRF(Module):
         
         self.feature = Linear(self.width, self.width)
         self.rgb = Sequential(
-            Linear(self.phi_d_dim + self.width, self.width // 2), ReLU(),
+            Linear(self.phi_d_dim  * 2 + self.width, self.width // 2), ReLU(),
             Linear(self.width // 2, 3), Sigmoid(),
         )
 
@@ -65,9 +65,8 @@ class NeRF(Module):
         x = self.fc_2(torch.cat((phi_x, x), dim=-1))
 
         sigma = self.sigma(x).unsqueeze(-1)
+        rgb = self.rgb(torch.cat((phi_d, self.feature(x)), dim=-1))
 
-        feature = self.feature(x)
-        rgb = self.rgb(torch.cat((phi_d, feature), dim=-1))
         
         return sigma, rgb
         
