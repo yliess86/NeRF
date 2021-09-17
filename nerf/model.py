@@ -51,13 +51,13 @@ class NeRF(Module):
             phi_d (Tensor): ray direction embedding (B, PHI_D_FEATURES)
 
         Returns:
-            sigma (Tensor): volume density at query position (B, 1)
+            sigma (Tensor): volume density at query position (B, )
             rgb (Tensor): color at query position (B, 3)
         """
         x = self.fc_1(phi_x)
         x = self.fc_2(torch.cat((phi_x, x), dim=-1))
 
-        sigma = self.sigma(x)
+        sigma = self.sigma(x).unsqueeze(-1)
 
         feature = self.feature(x)
         rgb = self.rgb(torch.cat((phi_d, feature), dim=-1))
