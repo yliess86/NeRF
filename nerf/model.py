@@ -6,6 +6,15 @@ from typing import Tuple
 
 
 class NeRF(Module):
+    """Neural Radiance Field (NeRF) module
+
+    Arguments:
+        phi_x_dim (int): input features for ray position embedding
+        phi_d_dim (int): input features for ray direction embedding
+        width (int): base number of neurons for each layer (default: 256)
+        depth (int): number of layers in each subnetwork (default: 4)
+    """
+    
     def __init__(
         self,
         phi_x_dim: int,
@@ -35,6 +44,16 @@ class NeRF(Module):
         )
 
     def forward(self, phi_x: Tensor, phi_d: Tensor) -> Tuple[Tensor, Tensor]:
+        """Query NeRF
+
+        Arguments:
+            phi_x (Tensor): ray position embedding (B, PHI_X_FEATURES)
+            phi_d (Tensor): ray direction embedding (B, PHI_D_FEATURES)
+
+        Returns:
+            sigma (Tensor): volume density at query position (B, 1)
+            rgb (Tensor): color at query position (B, 3)
+        """
         x = self.fc_1(phi_x)
         x = self.fc_2(torch.cat((phi_x, x), dim=-1))
 
