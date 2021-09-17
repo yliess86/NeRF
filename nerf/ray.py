@@ -25,8 +25,7 @@ def uniform_bounded_z_values(
     Returns:
         t (Tensor): z-values from near to far (B, N)
     """
-    t = torch.linspace(0, 1, samples, device=d)
-    t = tn * (1 - t) + tf * t
+    t = torch.linspace(tn, tf, samples, device=d)
     return t.expand(batch_size, samples)
 
 
