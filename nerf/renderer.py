@@ -7,9 +7,6 @@ from torch import Tensor
 from typing import Tuple
 
 
-EPS = 1e-10
-
-
 @jit.script
 def exclusive_cumprod(x: Tensor) -> Tensor:
     """Tensorflow tf.math.cumprod(..., exclusive=True) equivalent
@@ -46,8 +43,10 @@ def render_volume(
         w (Tensor): absorbtion weights for each ray (B, N)
         C (Tensor): accumulated render color for each ray (B, 3)
     """
+    EPS = 1e-10
+    
     alpha = 1 - torch.exp(-sigma * delta)
-    w = alpha * exclusive_cumprod(1 - alpha + EPS, dim=-2)
+    w = alpha * exclusive_cumprod(1 - alpha + EPS)
     return w, torch.sum(w[:, :, None] * rgb, dim=-2)
 
 

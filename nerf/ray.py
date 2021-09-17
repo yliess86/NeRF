@@ -5,9 +5,6 @@ from torch import device, Tensor
 from typing import Tuple
 
 
-INF = 1e10
-
-
 @jit.script
 def uniform_bounded_z_values(
     tn: float,
@@ -44,10 +41,13 @@ def segment_lengths(t: Tensor, rd: Tensor) -> Tensor:
     Returns:
         delta (Tensor): rays segment length (B, N)
     """
+    B, INF = t.size(0), 1e10
+
     delta = t[:, 1:] - t[:, :-1]
-    delti = INF * torch.ones_like(delta)
+    delti = INF * torch.ones((B, 1), device=rd.device)
     delta = torch.cat((delta, delti), dim=-1)
     delta = delta * torch.norm(rd[:, None, :], dim=-1)
+    return delta
 
 
 @jit.script

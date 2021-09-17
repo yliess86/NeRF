@@ -1,7 +1,6 @@
 import torch
 import torch.jit as jit
 
-from numpy import pi as PI
 from torch import Size, Tensor
 from torch.nn import Module, Parameter
 
@@ -19,7 +18,7 @@ def sample_b(size: Size, sigma: float) -> Tensor:
     return torch.randn(size) * sigma
 
 
-@jit.scipt
+@jit.script
 def map_fourier_features(v: Tensor, b: Tensor) -> Tensor:
     """Map v to fourier features representation phi(v)
     
@@ -30,6 +29,7 @@ def map_fourier_features(v: Tensor, b: Tensor) -> Tensor:
     Returns:
         phi(v) (Tensor): fourrier features (B, 2 * OFeatures)
     """
+    PI = 3.141592653589793
     a = 2 * PI * v @ b.T
     return torch.cat((torch.sin(a), torch.cos(a)), dim=-1)
 

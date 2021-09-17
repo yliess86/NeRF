@@ -41,9 +41,9 @@ class NeRF(Module):
         
         self.sigma = Sequential(Linear(self.width, 1), ReLU())
         
-        self.feature = Linear(self.phi_d_dim + self.width, self.width)
+        self.feature = Linear(self.width, self.width)
         self.rgb = Sequential(
-            Linear(self.width, self.width // 2), ReLU(),
+            Linear(self.phi_d_dim + self.width, self.width // 2), ReLU(),
             Linear(self.width // 2, 3), Sigmoid(),
         )
 
