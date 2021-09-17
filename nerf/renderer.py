@@ -1,6 +1,8 @@
 import torch
 import torch.jit as jit
 
+from nerf.model import NeRF
+from nerf.ray import uniform_bounded_rays as ubrays
 from torch import Tensor
 from typing import Tuple
 
@@ -46,4 +48,49 @@ def render_volume(
     """
     alpha = 1 - torch.exp(-sigma * delta)
     w = alpha * exclusive_cumprod(1 - alpha + EPS, dim=-2)
-    return w, torch.sum(w[..., None] * rgb, dim=-2)
+    return w, torch.sum(w[:, :, None] * rgb, dim=-2)
+
+
+class BoundedVolumeRaymarcher:
+    """Bounded volume raymarcher
+
+    Arguments:
+        tn (float): near plane
+        tf (float): far plane
+        samples (int): number of samples along the ray (default: 64)
+    """
+
+    def __init__(self, tn: float, tf: float, samples: int = 64) -> None:
+        self.tn = tn
+        self.tf = tf
+        self.samples = samples
+
+    def render_volume(
+        self,
+        nerf: NeRF,
+        ro: Tensor,
+        rd: Tensor,
+    ) -> Tuple[Tensor, Tensor]:
+        """Render implicit volume given ray infos
+
+        Arguments:
+            nerf (NeRF): query Neural Radiance Field model
+            rx (Tensor): ray query position (B, 3)
+            rd (Tensor): ray query direction (B, 3)
+
+        Returns:
+            C (Tensor): accumulated render color for each ray (B, 3)
+        """
+        B, N = ro.size(0), self.samples
+
+        rx, rd, _, delta = ubrays(ro, rd, self.tn, self.tf, N)
+        rx = rx.view(B * N, 3)
+        rd = rx.view(B * N, 3)
+
+        sigma, rgb = nerf(rx, rd)
+        sigma = sigma.view(B, N)
+        rgb = rgb.view(B, N, 3)
+        
+        _, C = render_volume(sigma, rgb, delta)
+        
+        return C
