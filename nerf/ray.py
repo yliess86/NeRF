@@ -65,6 +65,7 @@ def uniform_bounded_rays(
         rd (Tensor): rays direction (B, 3)
         tn (float): near plane
         tf (float): far plane
+        samples (int): number of samples along the ray
 
     Returns:
         rx (Tensor): rays position queries (B, N, 3)
