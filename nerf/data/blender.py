@@ -43,6 +43,7 @@ def read_focal(W: int, meta: Dict[str, Any]) -> float:
 
 
 def read_data(
+    dataset: "BlenderDataset",
     base_dir: str,
     meta: Dict[str, Any],
     step: int,
@@ -50,6 +51,7 @@ def read_data(
     """Extract dataset data from metadata
 
     Arguments:
+        dataset (BlenderDataset): dataset context
         base_dir (str): data directory
         meta (Dict[str, Any]): dataset metadata
         step (int): read every x file
@@ -62,7 +64,7 @@ def read_data(
     frames = meta["frames"][::step]
     
     imgs, poses = [], []
-    for frame in tqdm(frames, desc="[BlenderDataset] Loading Data"):
+    for frame in tqdm(frames, desc=f"[{str(dataset)}] Loading Data"):
         img = os.path.join(base_dir, f"{frame['file_path']}.png")
         img = Image.open(img)
         img = to_tensor(img).float().permute(1, 2, 0)
@@ -80,6 +82,7 @@ def read_data(
 
 
 def build_rays(
+    dataset: "BlenderDataset",
     W: int,
     H: int,
     focal: float,
@@ -88,6 +91,7 @@ def build_rays(
     """Generate dataset rays (origin and direction)
 
     Arguments:
+        dataset (BlenderDataset): dataset context
         W (int): frame width
         H (int): frame height
         focal (float): camera focal length
@@ -100,7 +104,7 @@ def build_rays(
     prd = pinhole_ray_directions(W, H, focal)
 
     ros, rds = [], []
-    for c2w in tqdm(poses, desc="[BlenderDataset] Building Rays"):
+    for c2w in tqdm(poses, desc=f"[{str(dataset)}] Building Rays"):
         ro, rd = phinhole_ray_projection(prd, c2w)
         ros.append(ro)
         rds.append(rd)
@@ -134,13 +138,17 @@ class BlenderDataset(Dataset):
         self.base_dir = os.path.join(self.root, self.scene)
         self.meta = read_meta(self.base_dir, self.split)
         
-        self.imgs, self.poses = read_data(self.base_dir, self.meta, self.step)
+        self.imgs, self.poses = read_data(
+            self, self.base_dir, self.meta, self.step,
+        )
         
         self.SIZE = self.W, self.H = self.imgs[0].shape[:2][::-1]
         self.focal = read_focal(self.W, self.meta)
         self.near, self.far = 2., 6.
         
-        self.ro, self.rd = build_rays(*self.SIZE, self.focal, self.poses)
+        self.ro, self.rd = build_rays(
+            self, *self.SIZE, self.focal, self.poses,
+        )
 
         self.C = self.imgs.view(-1, 3)
         self.ro = self.ro.view(-1, 3)
@@ -166,3 +174,7 @@ class BlenderDataset(Dataset):
             rd (Tensor): ray direction (3, )
         """
         return self.C[idx], self.ro[idx], self.rd[idx]
+
+    def __str__(self) -> str:
+        cls = self.__class__.__name__
+        return f"{cls}({self.scene}, {self.split})"
