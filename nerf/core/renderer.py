@@ -1,8 +1,8 @@
 import torch
 import torch.jit as jit
 
-from nerf.model import NeRF
-from nerf.ray import uniform_bounded_rays as ubrays
+from nerf.core.model import NeRF
+from nerf.core.ray import uniform_bounded_rays as ubrays
 from torch import Tensor
 from typing import Tuple
 

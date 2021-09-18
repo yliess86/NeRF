@@ -1,6 +1,6 @@
 import torch
 
-from nerf.features import FourierFeatures
+from nerf.core.features import FourierFeatures
 from torch import Tensor
 from torch.nn import Linear, Module, ReLU, Sequential, Sigmoid
 from typing import Tuple
