@@ -79,7 +79,7 @@ The weights `w_i` are reused for inverse transform sampling for the fine pass.
 A total of `N_c + N_f` is finally used to generate the last render, this time querying the coarse model instead.
 
 
-## Current Implementation
+## Implementation
 
 *Status*
 - [x] Fourier Featrure Encoding
