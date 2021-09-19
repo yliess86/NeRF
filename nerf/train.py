@@ -9,7 +9,7 @@ from torch.nn import Module
 from torch.optim import Optimizer
 from torch.utils.data import DataLoader, Dataset
 from tqdm import tqdm
-from typing import Iterable, List, Optional, Tuple
+from typing import Callable, Iterable, List, Optional, Tuple
 
 
 @dataclass
@@ -139,6 +139,7 @@ def fit(
     batch_size: Optional[int] = 32,
     jobs: Optional[int] = 8,
     perturb: Optional[bool] = False,
+    callbacks: Optional[List[Callable[[int], None]]] = [],
 ) -> History:
     """Fit NeRF on a specific dataset
 
@@ -155,6 +156,7 @@ def fit(
         batch_size (int): batch size (default: 32)
         jobs (int): number of processes to use  (default: 8)
         perturb (bool): peturb ray query segment (default: False)
+        callbacks (Optional[List[Callable[[int], None]]]): callbacks (default: [])
 
     Returns:
         history (History): training history
@@ -166,9 +168,10 @@ def fit(
     modules = nerf, raymarcher, optim, criterion, scaler
 
     H = History()
-    for _ in tqdm(range(epochs), desc="[NeRF] Epoch"):
+    for epoch in tqdm(range(epochs), desc="[NeRF] Epoch"):
         H.train.append(step(*modules, train, d, split="train", perturb=perturb))
         if val: H.val.append(step(*modules, val, d, split="val"))
+        for callback in callbacks: callback(epoch)
     if test: H.test = step(*modules, test, d, split="test")
 
     return H
