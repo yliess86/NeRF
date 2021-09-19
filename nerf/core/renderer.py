@@ -4,7 +4,7 @@ import torch.jit as jit
 from nerf.core.model import NeRF
 from nerf.core.ray import uniform_bounded_rays as ubrays
 from torch import Tensor
-from typing import Tuple
+from typing import Optional, Tuple
 
 
 @jit.script
@@ -69,6 +69,7 @@ class BoundedVolumeRaymarcher:
         nerf: NeRF,
         ro: Tensor,
         rd: Tensor,
+        perturb: Optional[bool] = False,
     ) -> Tuple[Tensor, Tensor]:
         """Render implicit volume given ray infos
 
@@ -76,13 +77,14 @@ class BoundedVolumeRaymarcher:
             nerf (NeRF): query Neural Radiance Field model
             rx (Tensor): ray query position (B, 3)
             rd (Tensor): ray query direction (B, 3)
+            perturb (bool): peturb ray query segment (default: False)
 
         Returns:
             C (Tensor): accumulated render color for each ray (B, 3)
         """
         B, N = ro.size(0), self.samples
 
-        rx, rd, _, delta = ubrays(ro, rd, self.tn, self.tf, N)
+        rx, rd, _, delta = ubrays(ro, rd, self.tn, self.tf, N, perturb)
         rx = rx.view(B * N, 3)
         rd = rx.view(B * N, 3)
 

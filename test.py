@@ -15,8 +15,8 @@ if __name__ == "__main__":
     
     ROOT = "./data/blender"
     SCENE = "hotdog"
-    STEP = 5
-    SCALE = .5
+    STEP = 1
+    SCALE = .125
 
     MODEL = f"./res/NeRF_{SCENE}.pt"
     GT = f"./res/NeRF_{SCENE}_gt.png"
@@ -30,15 +30,16 @@ if __name__ == "__main__":
     
     TN, TF = 2., 6.
     SAMPLES = 128
+    PERTURB = True
 
-    LR = 1e-3
+    LR = 1e-4
     WEIGHT_DECAY = 0
 
-    BATCH_SIZE = 1024
+    BATCH_SIZE = 2 ** 10
     JOBS = 24
 
-    EPOCHS = 100
-    LOG = 50
+    EPOCHS = 500
+    LOG = 100
 
     train = BlenderDataset(ROOT, SCENE, "train", step=STEP, scale=SCALE)
     val = BlenderDataset(ROOT, SCENE, "val", step=STEP, scale=SCALE)
@@ -66,6 +67,7 @@ if __name__ == "__main__":
             epochs=EPOCHS // LOG,
             batch_size=BATCH_SIZE,
             jobs=JOBS,
+            perturb=PERTURB,
         )
 
         torch.save(nerf.state_dict(), MODEL)

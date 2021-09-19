@@ -53,6 +53,7 @@ def uniform_bounded_z_values(
     batch_size: int,
     samples: int,
     d: device,
+    perturb: bool,
 ) -> Tensor:
     """Generate uniform bounded z-values
 
@@ -62,11 +63,13 @@ def uniform_bounded_z_values(
         batch_size (int): batch size B
         samples (int): number of samples N
         d (device): torch device
+        perturb (bool): peturb ray query segment
 
     Returns:
         t (Tensor): z-values from near to far (B, N)
     """
     t = torch.linspace(tn, tf, samples, device=d)
+    if perturb: t += torch.randn_like(t) * (tf - tn) / samples
     return t.expand(batch_size, samples)
 
 
@@ -97,6 +100,7 @@ def uniform_bounded_rays(
     tn: float,
     tf: float,
     samples: int,
+    perturb: bool,
 ) -> Tuple[Tensor, Tensor, Tensor, Tensor]:
     """Sample along rays uniformly in bounded volume
 
@@ -106,6 +110,7 @@ def uniform_bounded_rays(
         tn (float): near plane
         tf (float): far plane
         samples (int): number of samples along the ray
+        perturb (bool): peturb ray query segment
 
     Returns:
         rx (Tensor): rays position queries (B, N, 3)
@@ -115,7 +120,7 @@ def uniform_bounded_rays(
     """
     B, N = ro.size(0), samples
 
-    t = uniform_bounded_z_values(tn, tf, B, N, ro.device)
+    t = uniform_bounded_z_values(tn, tf, B, N, ro.device, perturb)
     delta = segment_lengths(t, rd)
 
     rx = ro[:, None, :] + rd[:, None, :] * t[:, :, None]

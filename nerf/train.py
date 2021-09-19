@@ -78,6 +78,7 @@ def step(
     loader: DataLoader,
     d: device,
     split: str,
+    perturb: bool,
 ) -> Tuple[float, float]:
     """Training/Validation/Testing step
 
@@ -89,6 +90,7 @@ def step(
         loader (DataLoader): batch data loader
         d (device): torch device to send the batch on
         split (str): step state ("train", "val", "test")
+        perturb (bool): peturb ray query segment
 
     Returns:
         total_loss (float): arveraged cumulated total loss
@@ -103,7 +105,7 @@ def step(
     for C, ro, rd in batches:
         C, ro, rd = C.to(d), ro.to(d), rd.to(d)
 
-        C_ = raymarcher.render_volume(nerf, ro, rd)
+        C_ = raymarcher.render_volume(nerf, ro, rd, perturb=perturb)
         loss = criterion(C_, C)
         psnr = -10. * torch.log10(loss)
 
@@ -130,6 +132,7 @@ def fit(
     epochs: Optional[int] = 100,
     batch_size: Optional[int] = 32,
     jobs: Optional[int] = 8,
+    perturb: Optional[bool] = False,
 ) -> History:
     """Fit NeRF on a specific dataset
 
@@ -144,6 +147,7 @@ def fit(
         epochs (int): amount of epochs to train (default: 100)
         batch_size (int): batch size (default: 32)
         jobs (int): number of processes to use  (default: 8)
+        perturb (bool): peturb ray query segment (default: False)
 
     Returns:
         history (History): training history
@@ -156,7 +160,7 @@ def fit(
 
     H = History()
     for _ in tqdm(range(epochs), desc="[NeRF] Epoch"):
-        H.train.append(step(*modules, train, d, split="train"))
+        H.train.append(step(*modules, train, d, split="train", perturb=perturb))
         if val: H.val.append(step(*modules, val, d, split="val"))
     if test: H.test = step(*modules, test, d, split="test")
 
