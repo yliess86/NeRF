@@ -1,3 +1,5 @@
+import torch
+
 from dataclasses import dataclass, field
 from nerf.core.model import NeRF
 from nerf.core.renderer import BoundedVolumeRaymarcher as BVR
@@ -6,7 +8,7 @@ from torch.nn import Module
 from torch.optim import Optimizer
 from torch.utils.data import DataLoader, Dataset
 from tqdm import tqdm
-from typing import List, Tuple
+from typing import Iterable, List, Tuple
 
 
 @dataclass
@@ -14,13 +16,13 @@ class History:
     """"Training history
 
     Arguments:
-        train (List[float]): training history
-        val (List[float]): validation history
-        test (float): testing history
+        train (List[Iterable[float]]): training history
+        val (List[Iterable[float]]): validation history
+        test (Iterable[float]): testing history
     """
-    train: List[float] = field(default_factory=list)
-    val: List[float] = field(default_factory=list)
-    test: float = None
+    train: List[Iterable[float]] = field(default_factory=list)
+    val: List[Iterable[float]] = field(default_factory=list)
+    test: Iterable[float] = None
 
 
 def loaders(
@@ -76,7 +78,7 @@ def step(
     loader: DataLoader,
     d: device,
     split: str,
-) -> float:
+) -> Tuple[float, float]:
     """Training/Validation/Testing step
 
     Arguments:
@@ -90,17 +92,20 @@ def step(
 
     Returns:
         total_loss (float): arveraged cumulated total loss
+        total_psnr (float): arveraged cumulated total psnr
     """
     train = split == "train"
     nerf = nerf.train() if train else nerf.eval()
 
     total_loss = 0.
+    total_psnr = 0.
     batches = tqdm(loader, desc=f"[NeRF] {split.capitalize()}")
     for C, ro, rd in batches:
         C, ro, rd = C.to(d), ro.to(d), rd.to(d)
 
         C_ = raymarcher.render_volume(nerf, ro, rd)
         loss = criterion(C_, C)
+        psnr = -10. * torch.log10(loss)
 
         if train:
             loss.backward()
@@ -108,9 +113,10 @@ def step(
             optim.zero_grad()
 
         total_loss += loss.item() / len(loader)
-        batches.set_postfix(loss=total_loss)
+        total_psnr += psnr.item() / len(loader)
+        batches.set_postfix(loss=total_loss, psnr=total_psnr)
 
-    return total_loss
+    return total_loss, total_psnr
 
 
 def fit(
