@@ -12,6 +12,8 @@ class NeRF(Module):
     Arguments:
         phi_x_dim (int): input features for ray position embedding
         phi_d_dim (int): input features for ray direction embedding
+        phi_x_sigma (float): input sigma for ray position embedding
+        phi_d_sigma (float): input sigma for ray direction embedding
         width (int): base number of neurons for each layer (default: 256)
         depth (int): number of layers in each subnetwork (default: 4)
     """
@@ -20,12 +22,16 @@ class NeRF(Module):
         self,
         phi_x_dim: int,
         phi_d_dim: int,
+        phi_x_sigma: float,
+        phi_d_sigma: float,
         width: int = 256,
         depth: int = 4,
     ) -> None:
         super().__init__()
         self.phi_x_dim = phi_x_dim
         self.phi_d_dim = phi_d_dim
+        self.phi_x_sigma = phi_x_sigma
+        self.phi_d_sigma = phi_d_sigma
         self.width = width
         self.depth = depth
 
@@ -33,8 +39,8 @@ class NeRF(Module):
         fc_1 = [(self.phi_x_dim * 2, self.width)] + fc
         fc_2 = [(self.phi_x_dim * 2 + self.width, self.width)] + fc
 
-        self.phi_x = FourierFeatures(3, self.phi_x_dim)
-        self.phi_d = FourierFeatures(3, self.phi_d_dim)
+        self.phi_x = FourierFeatures(3, features=self.phi_x_dim, sigma=self.phi_x_sigma)
+        self.phi_d = FourierFeatures(3, features=self.phi_d_dim, sigma=self.phi_d_sigma)
 
         self.fc_1 = Sequential(*(Sequential(Linear(*io), ReLU()) for io in fc_1))
         self.fc_2 = Sequential(*(Sequential(Linear(*io), ReLU()) for io in fc_2))
