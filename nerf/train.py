@@ -4,6 +4,7 @@ from dataclasses import dataclass, field
 from nerf.core.model import NeRF
 from nerf.core.renderer import BoundedVolumeRaymarcher as BVR
 from torch import device
+from torch.cuda.amp import autocast, GradScaler
 from torch.nn import Module
 from torch.optim import Optimizer
 from torch.utils.data import DataLoader, Dataset
@@ -75,6 +76,7 @@ def step(
     raymarcher: BVR,
     optim: Optimizer,
     criterion: Module,
+    scaler: GradScaler,
     loader: DataLoader,
     d: device,
     split: str,
@@ -87,6 +89,7 @@ def step(
         raymarcher (BVR): bounded volume raymarching renderer
         optim (Optimizer): optimization strategy
         criterion (Module): objective function
+        scaler (GradScaler): grad scaler for half precision (fp16)
         loader (DataLoader): batch data loader
         d (device): torch device to send the batch on
         split (str): step state ("train", "val", "test")
@@ -105,13 +108,15 @@ def step(
     for C, ro, rd in batches:
         C, ro, rd = C.to(d), ro.to(d), rd.to(d)
 
-        C_ = raymarcher.render_volume(nerf, ro, rd, perturb=perturb)
-        loss = criterion(C_, C)
-        psnr = -10. * torch.log10(loss)
+        with autocast(enabled=scaler.is_enabled()):
+            C_ = raymarcher.render_volume(nerf, ro, rd, perturb=perturb)
+            loss = criterion(C_, C)
+            psnr = -10. * torch.log10(loss)
 
         if train:
-            loss.backward()
-            optim.step()
+            scaler.scale(loss).backward()
+            scaler.step(optim)
+            scaler.update()
             optim.zero_grad()
 
         total_loss += loss.item() / len(loader)
@@ -126,6 +131,7 @@ def fit(
     raymarcher: BVR,
     optim: Optimizer,
     criterion: Module,
+    scaler: GradScaler,
     train_data: Dataset,
     val_data: Optional[Dataset] = None,
     test_data: Optional[Dataset] = None,
@@ -141,6 +147,7 @@ def fit(
         raymarcher (BVR): bounded volume raymarching renderer
         optim (Optimizer): optimization strategy
         criterion (Module): objective function
+        scaler (GradScaler): grad scaler for half precision (fp16)
         train_data (Dataset): training dataset
         val_data (Dataset): validation dataset (default: None)
         test_data (Dataset): testing dataset (default: None)
@@ -156,7 +163,7 @@ def fit(
     train, val, test = loaders(*datasets, batch_size, jobs)
 
     d = next(nerf.parameters()).device
-    modules = nerf, raymarcher, optim, criterion
+    modules = nerf, raymarcher, optim, criterion, scaler
 
     H = History()
     for _ in tqdm(range(epochs), desc="[NeRF] Epoch"):

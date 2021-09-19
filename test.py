@@ -9,6 +9,7 @@ if __name__ == "__main__":
     from nerf.data import BlenderDataset
     from nerf.core import NeRF
     from nerf.core import BoundedVolumeRaymarcher as BVR
+    from torch.cuda.amp import GradScaler
     from torch.nn import MSELoss
     from torch.optim import AdamW
 
@@ -32,8 +33,9 @@ if __name__ == "__main__":
     SAMPLES = 128
     PERTURB = True
 
-    LR = 1e-4
-    WEIGHT_DECAY = 0
+    LR = 1e-2
+    WEIGHT_DECAY = 1e-2
+    FP16 = True
 
     BATCH_SIZE = 2 ** 10
     JOBS = 24
@@ -57,8 +59,9 @@ if __name__ == "__main__":
     
     criterion = MSELoss().cuda()
     optim = AdamW(nerf.parameters(), lr=LR, weight_decay=WEIGHT_DECAY)
+    scaler = GradScaler(enabled=FP16)
 
-    fit_args = raymarcher, optim, criterion, train, None, None  # val, test
+    fit_args = raymarcher, optim, criterion, scaler, train, None, None  # val, test
     inf_args = raymarcher, ro, rd, W, H
 
     for _ in range(LOG):
