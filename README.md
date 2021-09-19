@@ -78,6 +78,19 @@ In this equation, `w_i` respresents a piecewise-constant PDF along the ray, `T_i
 The weights `w_i` are reused for inverse transform sampling for the fine pass.
 A total of `N_c + N_f` is finally used to generate the last render, this time querying the coarse model instead.
 
+
+## Current Implementation
+
+*Status*
+- [x] Fourier Featrure Encoding
+- [x] Neural Radiance Field Model
+- [x] Bounded Volume Raymarcher
+- [ ] Camera Paths (Spirals, Turnaround, ...)
+- [ ] Noise for Continuous Representation
+- [ ] Fine Network
+- [ ] Training Optimization
+- [ ] Inference Optimization
+
 ## Citation
 
 *Original Work*
