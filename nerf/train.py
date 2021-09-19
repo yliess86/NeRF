@@ -8,7 +8,7 @@ from torch.nn import Module
 from torch.optim import Optimizer
 from torch.utils.data import DataLoader, Dataset
 from tqdm import tqdm
-from typing import Iterable, List, Tuple
+from typing import Iterable, List, Optional, Tuple
 
 
 @dataclass
@@ -51,21 +51,21 @@ def loaders(
         batch_size=batch_size,
         shuffle=True,
         num_workers=jobs,
-    )
+    ) if train_data else None
 
     val = DataLoader(
         val_data,
         batch_size=batch_size,
         shuffle=False,
         num_workers=jobs,
-    )
+    ) if val_data else None
 
     test = DataLoader(
         test_data,
         batch_size=batch_size,
         shuffle=False,
         num_workers=jobs,
-    )
+    ) if test_data else None
     
     return train, val, test
 
@@ -125,11 +125,11 @@ def fit(
     optim: Optimizer,
     criterion: Module,
     train_data: Dataset,
-    val_data: Dataset,
-    test_data: Dataset,
-    epochs: int = 100,
-    batch_size: int = 32,
-    jobs: int = 8,
+    val_data: Optional[Dataset] = None,
+    test_data: Optional[Dataset] = None,
+    epochs: Optional[int] = 100,
+    batch_size: Optional[int] = 32,
+    jobs: Optional[int] = 8,
 ) -> History:
     """Fit NeRF on a specific dataset
 
@@ -139,11 +139,11 @@ def fit(
         optim (Optimizer): optimization strategy
         criterion (Module): objective function
         train_data (Dataset): training dataset
-        val_data (Dataset): validation dataset
-        test_data (Dataset): testing dataset
-        epochs (int): amount of epochs to train
-        batch_size (int): batch size
-        jobs (int): number of processes to use
+        val_data (Dataset): validation dataset (default: None)
+        test_data (Dataset): testing dataset (default: None)
+        epochs (int): amount of epochs to train (default: 100)
+        batch_size (int): batch size (default: 32)
+        jobs (int): number of processes to use  (default: 8)
 
     Returns:
         history (History): training history
@@ -157,8 +157,8 @@ def fit(
     H = History()
     for _ in tqdm(range(epochs), desc="[NeRF] Epoch"):
         H.train.append(step(*modules, train, d, split="train"))
-        H.val.append(step(*modules, val, d, split="val"))
-    H.test = step(*modules, test, d, split="test")
+        if val: H.val.append(step(*modules, val, d, split="val"))
+    if test: H.test = step(*modules, test, d, split="test")
 
     return H
 
