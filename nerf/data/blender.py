@@ -28,18 +28,20 @@ def read_meta(base_dir: str, split: str) -> Dict[str, Any]:
     return meta
 
 
-def read_focal(W: int, meta: Dict[str, Any]) -> float:
+def read_focal(W: int, meta: Dict[str, Any], scale: float) -> float:
     """Extract camera focal length from datset metadata
 
     Arguments:
         W (int): frame width
         meta (Dict[str, Any]): dataset metadata
+        scale (float): scale for smaller images
 
     Returns:
         focal (float): camera focal length
     """
     camera_angle_x = float(meta["camera_angle_x"])
-    return  .5 * W / np.tan(.5 * camera_angle_x)
+    focal = .5 * W / np.tan(.5 * camera_angle_x)
+    return scale * focal
 
 
 def read_data(
@@ -47,6 +49,7 @@ def read_data(
     base_dir: str,
     meta: Dict[str, Any],
     step: int,
+    scale: float,
 ) -> Tuple[Tensor, Tensor]:
     """Extract dataset data from metadata
 
@@ -55,6 +58,7 @@ def read_data(
         base_dir (str): data directory
         meta (Dict[str, Any]): dataset metadata
         step (int): read every x file
+        scale (float): scale for smaller images
 
     Returns:
         imgs (Tensor): view images (N, W, H, 3)
@@ -67,6 +71,13 @@ def read_data(
     for frame in tqdm(frames, desc=f"[{str(dataset)}] Loading Data"):
         img = os.path.join(base_dir, f"{frame['file_path']}.png")
         img = Image.open(img)
+
+        if scale < 1.:
+            w, h = img.width, img.height
+            w = int(np.floor(scale * w))
+            h = int(np.floor(scale * h))
+            img = img.resize((w, h), Image.NEAREST)
+
         img = to_tensor(img).float().permute(1, 2, 0)
         img = img[:, :, :3] * img[:, :, -1:]
         imgs.append(img)
@@ -120,6 +131,7 @@ class BlenderDataset(Dataset):
         scene (str): blender scene
         split (int): dataset split ("train", "val", "test")
         step (int): read every x frame (default: 1)
+        scale (float): scale for smaller images (default: 1.)
     """
 
     def __init__(
@@ -128,22 +140,24 @@ class BlenderDataset(Dataset):
         scene: str,
         split: str,
         step: int = 1,
+        scale: float = 1.,
     ) -> None:
         super().__init__()
         self.root = root
         self.scene = scene
         self.split = split
         self.step = step
+        self.scale = max(min(scale, 1.), 0.)
 
         self.base_dir = os.path.join(self.root, self.scene)
         self.meta = read_meta(self.base_dir, self.split)
         
         self.imgs, self.poses = read_data(
-            self, self.base_dir, self.meta, self.step,
+            self, self.base_dir, self.meta, self.step, self.scale,
         )
         
         self.SIZE = self.W, self.H = self.imgs[0].shape[:2][::-1]
-        self.focal = read_focal(self.W, self.meta)
+        self.focal = read_focal(self.W, self.meta, self.scale)
         self.near, self.far = 2., 6.
         
         self.ro, self.rd = build_rays(

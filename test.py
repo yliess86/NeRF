@@ -16,6 +16,7 @@ if __name__ == "__main__":
     ROOT = "./data/blender"
     SCENE = "hotdog"
     STEP = 5
+    SCALE = .5
 
     MODEL = f"./res/NeRF_{SCENE}.pt"
     GT = f"./res/NeRF_{SCENE}_gt.png"
@@ -39,11 +40,11 @@ if __name__ == "__main__":
     EPOCHS = 100
     LOG = 50
 
-    train = BlenderDataset(ROOT, SCENE, "train", step=STEP)
-    val = BlenderDataset(ROOT, SCENE, "val", step=STEP)
-    test = BlenderDataset(ROOT, SCENE, "test", step=STEP)
+    train = BlenderDataset(ROOT, SCENE, "train", step=STEP, scale=SCALE)
+    val = BlenderDataset(ROOT, SCENE, "val", step=STEP, scale=SCALE)
+    test = BlenderDataset(ROOT, SCENE, "test", step=STEP, scale=SCALE)
 
-    W, H = test.W, test.H
+    W, H = train.W, train.H
     C, ro, rd = test.C[:W * H], test.ro[:W * H], test.rd[:W * H]
 
     gt = C.view(W, H, 3).clip(0, 1) * 255
@@ -56,10 +57,10 @@ if __name__ == "__main__":
     criterion = MSELoss().cuda()
     optim = AdamW(nerf.parameters(), lr=LR, weight_decay=WEIGHT_DECAY)
 
-    fit_args = raymarcher, optim, criterion, train, val, test
+    fit_args = raymarcher, optim, criterion, train, None, None  # val, test
     inf_args = raymarcher, ro, rd, W, H
 
-    for i in range(LOG):
+    for _ in range(LOG):
         history = nerf.fit(
             *fit_args,
             epochs=EPOCHS // LOG,

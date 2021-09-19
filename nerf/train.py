@@ -95,7 +95,7 @@ def step(
         total_psnr (float): arveraged cumulated total psnr
     """
     train = split == "train"
-    nerf = nerf.train() if train else nerf.eval()
+    nerf = nerf.train(train)
 
     total_loss = 0.
     total_psnr = 0.
