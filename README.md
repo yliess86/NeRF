@@ -86,7 +86,7 @@ A total of `N_c + N_f` is finally used to generate the last render, this time qu
 - [x] Neural Radiance Field Model
 - [x] Bounded Volume Raymarcher
 - [x] Noise for Continuous Representation
-- [ ] Camera Paths (Spirals, Turnaround, ...)
+- [x] Camera Paths (Turnaround, ...)
 - [ ] Fine Network
 - [ ] Training Optimization
 - [ ] Inference Optimization
