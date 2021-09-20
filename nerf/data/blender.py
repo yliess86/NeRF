@@ -9,7 +9,7 @@ from PIL import Image
 from torch import FloatTensor, Tensor
 from torch.utils.data import Dataset
 from torchvision.transforms import ToTensor
-from tqdm import tqdm
+from tqdm.auto import tqdm
 from typing import Any, Dict, Tuple
 
 

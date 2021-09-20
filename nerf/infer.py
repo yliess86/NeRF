@@ -3,7 +3,7 @@ import torch
 from nerf.core.model import NeRF
 from nerf.core.renderer import BoundedVolumeRaymarcher as BVR
 from torch import Tensor
-from tqdm import tqdm
+from tqdm.auto import tqdm
 
 
 def infer(
@@ -14,6 +14,7 @@ def infer(
     W: int,
     H: int,
     batch_size: int = 32,
+    verbose: bool = True,
 ) -> Tensor:
     """Neural radiance field inference (render frame)
 
@@ -25,6 +26,7 @@ def infer(
         W (int): frame width
         H (int): frame height
         batch_size (int): batch size
+        verbose (bool): print tqdm
 
     Returns:
         pred (Tensor): rendered frame [0, 255] (W, H, 3)
@@ -38,7 +40,8 @@ def infer(
         pred = []
         batches = range(0, n, batch_size)
 
-        for s in tqdm(batches, desc="[NeRF] Rendering"):
+        pbar = tqdm(batches, desc="[NeRF] Rendering", disable=(not verbose))
+        for s in pbar:
             e = min(s + batch_size, n)
             rays = ro[s:e].to(d), rd[s:e].to(d)
             C = raymarcher.render_volume(nerf, *rays)
