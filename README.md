@@ -90,6 +90,7 @@ A total of `N_c + N_f` is finally used to generate the last render, this time qu
 - [ ] Fine Network
 - [ ] Training Optimization
 - [ ] Inference Optimization
+- [x] Interactive Notebook
 
 ## Citation
 
