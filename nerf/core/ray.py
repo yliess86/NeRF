@@ -69,7 +69,7 @@ def uniform_bounded_z_values(
         t (Tensor): z-values from near to far (B, N)
     """
     t = torch.linspace(tn, tf, samples, device=d)
-    if perturb: t += torch.randn_like(t) * (tf - tn) / samples
+    if perturb: t += torch.rand_like(t) * (tf - tn) / samples
     return t.expand(batch_size, samples)
 
 
