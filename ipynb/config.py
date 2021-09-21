@@ -17,8 +17,7 @@ class Config:
         self.setup_widgets()
         self.setup_tabs()
 
-        self.app = Tab()
-        self.app.children = list(self.tabs.values()) 
+        self.app = Tab(children=list(self.tabs.values())) 
         for t, title in enumerate(self.tabs.keys()):
             self.app.set_title(t, title.capitalize())
 
@@ -74,7 +73,7 @@ class TrainConfig(Config):
         self.register_widget("lr", FloatSlider(min=0., max=1., step=1e-6, value=5e-3, description="Learning Rate", readout_format=".2e"))
         self.register_widget("fp16", Checkbox(value=True, description="Half Precision"))
         self.register_widget("batch_size", IntSlider(min=2, max=2 ** 16, step=2, value=2 ** 12, description="Batch Size"))
-        self.register_widget("jobs", IntSlider(min=0, max=32, step=1, value=cpu_count(), description="Jobs"))
+        self.register_widget("jobs", IntSlider(min=0, max=32, step=1, value=cpu_count() // 2, description="Jobs"))
         
     def setup_tabs(self) -> None:
         self.register_tab("dataset", 2, 2, ["scene", None, "step", "scale"])
@@ -109,7 +108,7 @@ class RenderConfig(Config):
         self.register_widget("perturb", Checkbox(value=False, description="Perturb", disable=True))
         
         self.register_widget("batch_size", IntSlider(min=2, max=2 ** 16, step=2, value=2 ** 12, description="Batch Size"))
-        self.register_widget("jobs", IntSlider(min=0, max=32, step=1, value=cpu_count(), description="Jobs"))
+        self.register_widget("jobs", IntSlider(min=0, max=32, step=1, value=cpu_count() // 2, description="Jobs"))
 
         self.register_widget("frames", IntSlider(min=1, max=500, step=1, value=120, description="Frames"))
         self.register_widget("fps", IntSlider(min=1, max=60, step=1, value=25, description="FPS"))

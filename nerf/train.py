@@ -81,6 +81,7 @@ def step(
     d: device,
     split: str,
     perturb: bool,
+    verbose: bool,
 ) -> Tuple[float, float]:
     """Training/Validation/Testing step
 
@@ -94,6 +95,7 @@ def step(
         d (device): torch device to send the batch on
         split (str): step state ("train", "val", "test")
         perturb (bool): peturb ray query segment
+        verbose (bool): print tqdm
 
     Returns:
         total_loss (float): arveraged cumulated total loss
@@ -104,7 +106,7 @@ def step(
 
     total_loss = 0.
     total_psnr = 0.
-    batches = tqdm(loader, desc=f"[NeRF] {split.capitalize()}")
+    batches = tqdm(loader, desc=f"[NeRF] {split.capitalize()}", disable=not verbose)
     for C, ro, rd in batches:
         C, ro, rd = C.to(d), ro.to(d), rd.to(d)
 
@@ -139,7 +141,8 @@ def fit(
     batch_size: Optional[int] = 32,
     jobs: Optional[int] = 8,
     perturb: Optional[bool] = False,
-    callbacks: Optional[List[Callable[[int], None]]] = [],
+    callbacks: Optional[List[Callable[[int, History], None]]] = [],
+    verbose: bool = True,
 ) -> History:
     """Fit NeRF on a specific dataset
 
@@ -156,7 +159,8 @@ def fit(
         batch_size (int): batch size (default: 32)
         jobs (int): number of processes to use  (default: 8)
         perturb (bool): peturb ray query segment (default: False)
-        callbacks (Optional[List[Callable[[int], None]]]): callbacks (default: [])
+        callbacks (Optional[List[Callable[[int, History], None]]]): callbacks (default: [])
+        verbose (Optional[bool]): print tqdm (default: True)
 
     Returns:
         history (History): training history
@@ -168,11 +172,11 @@ def fit(
     modules = nerf, raymarcher, optim, criterion, scaler
 
     H = History()
-    for epoch in tqdm(range(epochs), desc="[NeRF] Epoch"):
-        H.train.append(step(*modules, train, d, split="train", perturb=perturb))
-        if val: H.val.append(step(*modules, val, d, split="val"))
-        for callback in callbacks: callback(epoch)
-    if test: H.test = step(*modules, test, d, split="test")
+    for epoch in tqdm(range(epochs), desc="[NeRF] Epoch", disable=not verbose):
+        H.train.append(step(*modules, train, d, split="train", perturb=perturb, verbose=verbose))
+        if val: H.val.append(step(*modules, val, d, split="val", verbose=verbose))
+        for callback in callbacks: callback(epoch, H)
+    if test: H.test = step(*modules, test, d, split="test", verbose=verbose)
 
     return H
 
