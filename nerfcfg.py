@@ -2,77 +2,34 @@ import os
 
 from IPython.display import display
 from ipywidgets import GridspecLayout, TwoByTwoLayout, widgets
+from multiprocessing import cpu_count
 from typing import List
 
 
 class TrainConfig:
     def __init__(self) -> None:
-        # Dataset
         self.blender = "./data/blender"
-        self.scene = self.scenes[3]
-        self.step = 1
-        self.scale = .1
-        
-        # Model
-        self.features = 256
-        self.sigma = 26.
-        self.width = 128
-        self.depth = 2
-        
-        # Bounded Volume Raymarcher
-        self.tn, self.tf = 2., 6.
-        self.samples = 64
-        self.perturb = True
-        
-        # Hyperparameters
-        self.epochs = 100
-        self.log = 10
-        self.lr = 5e-3
-        self.fp16 = True
-        self.batch_size = 2 ** 14
-        self.jobs = 24
         
         # Widgets
-        self.w_scene = widgets.Dropdown(options=self.scenes, value=self.scene, description="Scene")
-        self.w_step = widgets.IntSlider(min=1, max=20, step=1, value=self.step, description="Step")
-        self.w_scale = widgets.FloatSlider(min=.1, max=1., step=.1, value=self.scale, description="Scale")
+        self.w_scene = widgets.Dropdown(options=self.scenes, value=self.scenes[3], description="Scene")
+        self.w_step = widgets.IntSlider(min=1, max=20, step=1, value=1, description="Step")
+        self.w_scale = widgets.FloatSlider(min=.1, max=1., step=.1, value=.1, description="Scale", readout_format=".1f")
         
-        self.w_features = widgets.IntSlider(min=32, max=2048, step=2, value=self.features, description="Features")
-        self.w_sigma = widgets.FloatSlider(min=1., max=32., step=1., value=self.sigma, description="Sigma")
-        self.w_width = widgets.IntSlider(min=32, max=2048, step=2, value=self.width, description="Width")
-        self.w_depth = widgets.IntSlider(min=1, max=8, step=1, value=self.depth, description="Depth")
+        self.w_features = widgets.IntSlider(min=32, max=2048, step=2, value=256, description="Features")
+        self.w_sigma = widgets.FloatSlider(min=1., max=32., step=1., value=26., description="Sigma", readout_format=".1f")
+        self.w_width = widgets.IntSlider(min=32, max=2048, step=2, value=128, description="Width")
+        self.w_depth = widgets.IntSlider(min=1, max=8, step=1, value=2, description="Depth")
         
-        self.w_t = widgets.FloatRangeSlider(min=0., max=100., step=1., value=[self.tn, self.tf], description="Near-Far")
-        self.w_samples = widgets.IntSlider(min=32, max=2048, step=2, value=self.samples, description="Samples")
-        self.w_perturb = widgets.Checkbox(value=self.perturb, description="Perturb")
+        self.w_t = widgets.FloatRangeSlider(min=0., max=100., step=1., value=[2., 6.], description="Near-Far", readout_format=".1f")
+        self.w_samples = widgets.IntSlider(min=32, max=2048, step=2, value=64, description="Samples")
+        self.w_perturb = widgets.Checkbox(value=True, description="Perturb")
         
-        self.w_epochs = widgets.IntSlider(min=10, max=500_000, step=10, value=self.epochs, description="Epochs")
-        self.w_log = widgets.IntSlider(min=1, max=100, step=1, value=self.log, description="Log")
-        self.w_lr = widgets.FloatSlider(min=0., max=1., step=1e-6, value=self.lr, description="Learning Rate")
-        self.w_fp16 = widgets.Checkbox(value=self.fp16, description="Half Precision")
-        self.w_batch_size = widgets.IntSlider(min=2, max=2 ** 16, step=2, value=self.batch_size, description="Batch Size")
-        self.w_jobs = widgets.IntSlider(min=0, max=32, step=1, value=self.jobs, description="Jobs")
-        
-        # Observe Widgets
-        self.w_scene.observe(self.update_scene, "value")
-        self.w_step.observe(self.update_step, "value")
-        self.w_scale.observe(self.update_scale, "value")
-        
-        self.w_features.observe(self.update_features, "value")
-        self.w_sigma.observe(self.update_sigma, "value")
-        self.w_width.observe(self.update_width, "value")
-        self.w_depth.observe(self.update_depth, "value")
-        
-        self.w_t.observe(self.update_t, "value")
-        self.w_samples.observe(self.update_samples, "value")
-        self.w_perturb.observe(self.update_perturb, "value")
-        
-        self.w_epochs.observe(self.update_epochs, "value")
-        self.w_log.observe(self.update_log, "value")
-        self.w_lr.observe(self.update_lr, "value")
-        self.w_fp16.observe(self.update_fp16, "value")
-        self.w_batch_size.observe(self.update_batch_size, "value")
-        self.w_jobs.observe(self.update_jobs, "value")
+        self.w_epochs = widgets.IntSlider(min=10, max=500_000, step=10, value=100, description="Epochs")
+        self.w_log = widgets.IntSlider(min=1, max=100, step=1, value=5, description="Log")
+        self.w_lr = widgets.FloatSlider(min=0., max=1., step=1e-6, value=5e-3, description="Learning Rate", readout_format=".2e")
+        self.w_fp16 = widgets.Checkbox(value=True, description="Half Precision")
+        self.w_batch_size = widgets.IntSlider(min=2, max=2 ** 16, step=2, value=2 ** 12, description="Batch Size")
+        self.w_jobs = widgets.IntSlider(min=0, max=32, step=1, value=cpu_count(), description="Jobs")
         
         # Widget Layout
         self.w_dataset_title = widgets.HTML(value="<h2>Dataset</h2>", disable=True)
@@ -144,53 +101,73 @@ class TrainConfig:
     def pred_png(self) -> str:
         return f"./res/NeRF_{self.scene}_pred.png"
         
-    def update_scene(self, change) -> None:
-        self.scene = change["new"]
-        
-    def update_step(self, change) -> None:
-        self.step = change["new"]
-        
-    def update_scale(self, change) -> None:
-        self.scale = change["new"]
-        
-    def update_features(self, change) -> None:
-        self.features = change["new"]
-        
-    def update_sigma(self, change) -> None:
-        self.sigma = change["new"]
-        
-    def update_width(self, change) -> None:
-        self.width = change["new"]
-        
-    def update_depth(self, change) -> None:
-        self.depth = change["new"]
-        
-    def update_t(self, change) -> None:
-        self.tn, self.tf = change["new"]
-        
-    def update_samples(self, change) -> None:
-        self.samples = change["new"]
-        
-    def update_perturb(self, change) -> None:
-        self.perturb = change["new"]
-        
-    def update_epochs(self, change) -> None:
-        self.epochs = change["new"]
-        
-    def update_log(self, change) -> None:
-        self.log = change["new"]
-        
-    def update_lr(self, change) -> None:
-        self.lr = change["new"]
-        
-    def update_fp16(self, change) -> None:
-        self.fp16 = change["new"]
-        
-    def update_batch_size(self, change) -> None:
-        self.batch_size = change["new"]
-        
-    def update_jobs(self, change) -> None:
-        self.jobs = change["new"]
+    @property
+    def scene(self) -> str:
+        return self.w_scene.value
+    
+    @property
+    def step(self) -> int:
+        return self.w_step.value
+    
+    @property
+    def scale(self) -> float:
+        return self.w_scale.value
+    
+    @property
+    def features(self) -> int:
+        return self.w_features.value
+    
+    @property
+    def sigma(self) -> float:
+        return self.w_sigma.value
+    
+    @property
+    def width(self) -> int:
+        return self.w_width.value
+    
+    @property
+    def depth(self) -> int:
+        return self.w_depth.value
+    
+    @property
+    def tn(self) -> float:
+        return self.w_t.value[0]
+    
+    @property
+    def tf(self) -> float:
+        return self.w_t.value[1]
+    
+    @property
+    def samples(self) -> int:
+        return self.w_samples.value
+    
+    @property
+    def perturb(self) -> bool:
+        return self.w_perturb.value
+    
+    @property
+    def epochs(self) -> int:
+        return self.w_epochs.value
+    
+    @property
+    def log(self) -> int:
+        return self.w_log.value
+    
+    @property
+    def lr(self) -> float:
+        return self.w_lr.value
+    
+    @property
+    def fp16(self) -> bool:
+        return self.w_fp16.value
+    
+    @property
+    def batch_size(self) -> int:
+        return self.w_batch_size.value
+    
+    @property
+    def jobs(self) -> int:
+        return self.w_jobs.value
         
     def display(self) -> None:
         display(self.app)
@@ -231,53 +208,22 @@ class TrainConfig:
 
 class RenderConfig:
     def __init__(self) -> None:
-        # Dataset
         self.blender = "./data/blender"
-        self.scene = self.scenes[3]
-        self.step = 1
-        self.scale = .1
-        
-        # Bounded Volume Raymarcher
-        self.tn, self.tf = 2., 6.
-        self.samples = 64
-        self.perturb = False
-        
-        # Hyperparameters
-        self.batch_size = 2 ** 14
-        self.jobs = 24
-
-        # Inference
-        self.frames = 120
-        self.fps = 25
         
         # Widgets
-        self.w_scene = widgets.Dropdown(options=self.scenes, value=self.scene, description="Scene")
-        self.w_step = widgets.IntSlider(min=1, max=20, step=1, value=self.step, description="Step")
-        self.w_scale = widgets.FloatSlider(min=.1, max=1., step=.1, value=self.scale, description="Scale")
+        self.w_scene = widgets.Dropdown(options=self.scenes, value=self.scenes[3], description="Scene")
+        self.w_step = widgets.IntSlider(min=1, max=20, step=1, value=20, description="Step")
+        self.w_scale = widgets.FloatSlider(min=.1, max=1., step=.1, value=1., description="Scale", readout_format=".1f")
         
-        self.w_t = widgets.FloatRangeSlider(min=0., max=100., step=1., value=[self.tn, self.tf], description="Near-Far")
-        self.w_samples = widgets.IntSlider(min=32, max=2048, step=2, value=self.samples, description="Samples")
-        self.w_perturb = widgets.Checkbox(value=self.perturb, description="Perturb", disable=True)
+        self.w_t = widgets.FloatRangeSlider(min=0., max=100., step=1., value=[2., 6.], description="Near-Far", readout_format=".1f")
+        self.w_samples = widgets.IntSlider(min=32, max=2048, step=2, value=128, description="Samples")
+        self.w_perturb = widgets.Checkbox(value=False, description="Perturb", disable=True)
         
-        self.w_batch_size = widgets.IntSlider(min=2, max=2 ** 16, step=2, value=self.batch_size, description="Batch Size")
-        self.w_jobs = widgets.IntSlider(min=0, max=32, step=1, value=self.jobs, description="Jobs")
+        self.w_batch_size = widgets.IntSlider(min=2, max=2 ** 16, step=2, value=2 ** 12, description="Batch Size")
+        self.w_jobs = widgets.IntSlider(min=0, max=32, step=1, value=cpu_count(), description="Jobs")
 
-        self.w_frames = widgets.IntSlider(min=1, max=500, step=1, value=self.frames, description="Frames")
-        self.w_fps = widgets.IntSlider(min=1, max=60, step=1, value=self.fps, description="FPS")
-        
-        # Observe Widgets
-        self.w_scene.observe(self.update_scene, "value")
-        self.w_step.observe(self.update_step, "value")
-        self.w_scale.observe(self.update_scale, "value")
-        
-        self.w_t.observe(self.update_t, "value")
-        self.w_samples.observe(self.update_samples, "value")
-        
-        self.w_batch_size.observe(self.update_batch_size, "value")
-        self.w_jobs.observe(self.update_jobs, "value")
-
-        self.w_frames.observe(self.update_frames, "value")
-        self.w_fps.observe(self.update_fps, "value")
+        self.w_frames = widgets.IntSlider(min=1, max=500, step=1, value=120, description="Frames")
+        self.w_fps = widgets.IntSlider(min=1, max=60, step=1, value=25, description="FPS")
         
         # Widget Layout
         self.w_dataset_title = widgets.HTML(value="<h2>Dataset</h2>", disable=True)
@@ -337,32 +283,49 @@ class RenderConfig:
     def pred_gif(self) -> str:
         return f"./res/NeRF_{self.scene}_pred.gif"
     
-    def update_scene(self, change) -> None:
-        self.scene = change["new"]
+    @property
+    def scene(self) -> str:
+        return self.w_scene.value
         
-    def update_step(self, change) -> None:
-        self.step = change["new"]
+    @property
+    def step(self) -> int:
+        return self.w_step.value
         
-    def update_scale(self, change) -> None:
-        self.scale = change["new"]
+    @property
+    def scale(self) -> float:
+        return self.w_scale.value
         
-    def update_t(self, change) -> None:
-        self.tn, self.tf = change["new"]
-        
-    def update_samples(self, change) -> None:
-        self.samples = change["new"]
-        
-    def update_batch_size(self, change) -> None:
-        self.batch_size = change["new"]
-        
-    def update_jobs(self, change) -> None:
-        self.jobs = change["new"]
+    @property
+    def tn(self) -> float:
+        return self.w_t.value[0]
 
-    def update_frames(self, change) -> None:
-        self.frames = change["new"]
+    @property
+    def tf(self) -> float:
+        return self.w_t.value[1]
+        
+    @property
+    def samples(self) -> int:
+        return self.w_samples.value
 
-    def update_fps(self, change) -> None:
-        self.fps = change["new"]
+    @property
+    def perturb(self) -> bool:
+        return self.w_perturb.value
+        
+    @property
+    def batch_size(self) -> int:
+        return self.w_batch_size.value
+        
+    @property
+    def jobs(self) -> int:
+        return self.w_jobs.value
+
+    @property
+    def frames(self) -> int:
+        return self.w_frames.value
+
+    @property
+    def fps(self) -> int:
+        return self.w_fps.value
         
     def display(self) -> None:
         display(self.app)
