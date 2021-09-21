@@ -8,7 +8,7 @@ from torch.cuda.amp import autocast, GradScaler
 from torch.nn import Module
 from torch.optim import Optimizer
 from torch.utils.data import DataLoader, Dataset
-from tqdm.auto import tqdm
+from tqdm import tqdm
 from typing import Callable, Iterable, List, Optional, Tuple
 
 

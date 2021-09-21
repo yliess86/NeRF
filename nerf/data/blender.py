@@ -4,12 +4,12 @@ import os
 import json
 
 from nerf.core.ray import pinhole_ray_directions, phinhole_ray_projection
-from nerf.data.path import turnaround_poses
+from nerf.data.path import turnaround_theta_poses, turnaround_phi_poses
 from PIL import Image
 from torch import FloatTensor, Tensor
 from torch.utils.data import Dataset
 from torchvision.transforms import ToTensor
-from tqdm.auto import tqdm
+from tqdm import tqdm
 from typing import Any, Dict, Tuple
 
 
@@ -169,13 +169,13 @@ class BlenderDataset(Dataset):
         self.ro = self.ro.view(-1, 3)
         self.rd = self.rd.view(-1, 3)
 
-    def turnaround_data(
+    def turnaround_theta_data(
         self,
         phi: float = -(1. / 6.) * np.pi,
         radius: float = 4.,
         samples: int = 40,
     ) -> Tuple[Tensor, Tensor]:
-        """Turnaround data
+        """Turnaround theta data
 
         Arguments:
             phi (float): angle phi (default: -(1. / 6.) * np.pi)
@@ -186,7 +186,30 @@ class BlenderDataset(Dataset):
             ro (Tensor): ray origin (3, )
             rd (Tensor): ray direction (3, )
         """
-        poses = turnaround_poses(phi, radius, samples)
+        poses = turnaround_theta_poses(phi, radius, samples)
+        ro, rd  = build_rays(self, self.W, self.H, self.focal, poses)
+        ro = ro.view(-1, 3)
+        rd = rd.view(-1, 3)
+        return ro, rd
+
+    def turnaround_phi_data(
+        self,
+        theta: float = -(1. / 6.) * np.pi,
+        radius: float = 4.,
+        samples: int = 40,
+    ) -> Tuple[Tensor, Tensor]:
+        """Turnaround phi data
+
+        Arguments:
+            theta (float): angle theta (default: -(1. / 6.) * np.pi)
+            z (float): depth z (default: 4.)
+            samples (int): number of sample N along the path (default: 40)
+
+        Returns:
+            ro (Tensor): ray origin (3, )
+            rd (Tensor): ray direction (3, )
+        """
+        poses = turnaround_phi_poses(theta, radius, samples)
         ro, rd  = build_rays(self, self.W, self.H, self.focal, poses)
         ro = ro.view(-1, 3)
         rd = rd.view(-1, 3)

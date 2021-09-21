@@ -80,12 +80,12 @@ def turnaround(theta: float, phi: float, radius: float) -> Tensor:
 
 
 @jit.script
-def turnaround_poses(
+def turnaround_theta_poses(
     phi: float,
     radius: float,
     samples: int,
 ) -> Tensor:
-    """Turnaround matrices (phi, theta, radius)
+    """Turnaround theta matrices (phi, theta, radius)
 
     Arguments:
         phi (float): angle phi
@@ -93,11 +93,35 @@ def turnaround_poses(
         samples (int): number of sample N along the path
 
     Returns:
-        poses (Tensor): turnaround matrices (N, 4, 4)
+        poses (Tensor): turnaround theta matrices (N, 4, 4)
     """
     PI = 3.141592653589793
     thetas = torch.linspace(0, 2 * PI, samples + 1)[:-1]
     return torch.stack([
         turnaround(theta, phi, radius)
         for theta in thetas
+    ], dim=0)
+
+
+@jit.script
+def turnaround_phi_poses(
+    theta: float,
+    radius: float,
+    samples: int,
+) -> Tensor:
+    """Turnaround phi matrices (phi, theta, radius)
+
+    Arguments:
+        theta (float): angle theta
+        z (float): depth z
+        samples (int): number of sample N along the path
+
+    Returns:
+        poses (Tensor): turnaround phi matrices (N, 4, 4)
+    """
+    PI = 3.141592653589793
+    phis = torch.linspace(0, 2 * PI, samples + 1)[:-1]
+    return torch.stack([
+        turnaround(theta, phi, radius)
+        for phi in phis
     ], dim=0)

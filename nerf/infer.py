@@ -3,7 +3,7 @@ import torch
 from nerf.core.model import NeRF
 from nerf.core.renderer import BoundedVolumeRaymarcher as BVR
 from torch import Tensor
-from tqdm.auto import tqdm
+from tqdm import tqdm
 
 
 def infer(
