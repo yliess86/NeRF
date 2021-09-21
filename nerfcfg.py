@@ -32,55 +32,45 @@ class TrainConfig:
         self.w_jobs = widgets.IntSlider(min=0, max=32, step=1, value=cpu_count(), description="Jobs")
         
         # Widget Layout
-        self.w_dataset_title = widgets.HTML(value="<h2>Dataset</h2>", disable=True)
-        self.w_dataset_2x2 = TwoByTwoLayout(
+        self.w_dataset = TwoByTwoLayout(
             top_left=self.w_scene,
             top_right=None,
             bottom_left=self.w_step,
             bottom_right=self.w_scale,
             merge=False,
         )
-        self.w_dataset = widgets.VBox([self.w_dataset_title, self.w_dataset_2x2])
         
-        self.w_model_title = widgets.HTML(value="<h2>Model</h2>", disable=True)
-        self.w_model_2x2 = TwoByTwoLayout(
+        self.w_model = TwoByTwoLayout(
             top_left=self.w_features,
             top_right=self.w_sigma,
             bottom_left=self.w_width,
             bottom_right=self.w_depth,
             merge=False,
         )
-        self.w_model = widgets.VBox([self.w_model_title, self.w_model_2x2])
         
-        self.w_raymarcher_title = widgets.HTML(value="<h2>Raymarcher</h2>", disable=True)
-        self.w_raymarcher_2x2 = TwoByTwoLayout(
+        self.w_raymarcher = TwoByTwoLayout(
             top_left=self.w_t,
             top_right=None,
             bottom_left=self.w_samples,
             bottom_right=self.w_perturb,
             merge=False,
         )
-        self.w_raymarcher = widgets.VBox([self.w_raymarcher_title, self.w_raymarcher_2x2])
         
-        self.w_hyperparams_title = widgets.HTML(value="<h2>Hyperparameters</h2>", disable=True)
-        self.w_hyperparams_3x2 = GridspecLayout(3, 2)
-        self.w_hyperparams_3x2[0, 0] = self.w_epochs
-        self.w_hyperparams_3x2[0, 1] = self.w_log
-        self.w_hyperparams_3x2[1, 0] = self.w_lr
-        self.w_hyperparams_3x2[1, 1] = self.w_fp16
-        self.w_hyperparams_3x2[2, 0] = self.w_batch_size
-        self.w_hyperparams_3x2[2, 1] = self.w_jobs
-        self.w_hyperparams = widgets.VBox([self.w_hyperparams_title, self.w_hyperparams_3x2])
+        self.w_hyperparams = GridspecLayout(3, 2)
+        self.w_hyperparams[0, 0] = self.w_epochs
+        self.w_hyperparams[0, 1] = self.w_log
+        self.w_hyperparams[1, 0] = self.w_lr
+        self.w_hyperparams[1, 1] = self.w_fp16
+        self.w_hyperparams[2, 0] = self.w_batch_size
+        self.w_hyperparams[2, 1] = self.w_jobs
         
         # App
         self.app_title = widgets.HTML(value="<h1>Train Configuration</h1>", disable=True)
-        self.app = widgets.VBox([
-            self.app_title,
-            self.w_dataset,
-            self.w_model,
-            self.w_raymarcher,
-            self.w_hyperparams,
-        ])
+        self.app_tabs = widgets.Tab()
+        self.app_tabs.children = [self.w_dataset, self.w_model, self.w_raymarcher, self.w_hyperparams] 
+        for t, title in enumerate(["Dataset", "Model", "Raymarcher", "Hyperparameters"]):
+            self.app_tabs.set_title(t, title)
+        self.app = widgets.VBox([self.app_title, self.app_tabs])
     
     @property
     def scenes(self) -> List[str]:
@@ -226,47 +216,37 @@ class RenderConfig:
         self.w_fps = widgets.IntSlider(min=1, max=60, step=1, value=25, description="FPS")
         
         # Widget Layout
-        self.w_dataset_title = widgets.HTML(value="<h2>Dataset</h2>", disable=True)
-        self.w_dataset_2x2 = TwoByTwoLayout(
+        self.w_dataset = TwoByTwoLayout(
             top_left=self.w_scene,
             top_right=None,
             bottom_left=self.w_step,
             bottom_right=self.w_scale,
             merge=False,
         )
-        self.w_dataset = widgets.VBox([self.w_dataset_title, self.w_dataset_2x2])
         
-        self.w_raymarcher_title = widgets.HTML(value="<h2>Raymarcher</h2>", disable=True)
-        self.w_raymarcher_2x2 = TwoByTwoLayout(
+        self.w_raymarcher = TwoByTwoLayout(
             top_left=self.w_t,
             top_right=None,
             bottom_left=self.w_samples,
             bottom_right=self.w_perturb,
             merge=False,
         )
-        self.w_raymarcher = widgets.VBox([self.w_raymarcher_title, self.w_raymarcher_2x2])
         
-        self.w_hyperparams_title = widgets.HTML(value="<h2>Hyperparameters</h2>", disable=True)
-        self.w_hyperparams_1x2 = GridspecLayout(1, 2)
-        self.w_hyperparams_1x2[0, 0] = self.w_batch_size
-        self.w_hyperparams_1x2[0, 1] = self.w_jobs
-        self.w_hyperparams = widgets.VBox([self.w_hyperparams_title, self.w_hyperparams_1x2])
+        self.w_hyperparams = GridspecLayout(1, 2)
+        self.w_hyperparams[0, 0] = self.w_batch_size
+        self.w_hyperparams[0, 1] = self.w_jobs
 
-        self.w_inference_title = widgets.HTML(value="<h2>Inference</h2>", disable=True)
-        self.w_inference_1x2 = GridspecLayout(1, 2)
-        self.w_inference_1x2[0, 0] = self.w_frames
-        self.w_inference_1x2[0, 1] = self.w_fps
-        self.w_inference = widgets.VBox([self.w_inference_title, self.w_inference_1x2])
+        self.w_inference = GridspecLayout(1, 2)
+        self.w_inference[0, 0] = self.w_frames
+        self.w_inference[0, 1] = self.w_fps
         
         # App
         self.app_title = widgets.HTML(value="<h1>Render Configuration</h1>", disable=True)
-        self.app = widgets.VBox([
-            self.app_title,
-            self.w_dataset,
-            self.w_raymarcher,
-            self.w_hyperparams,
-            self.w_inference,
-        ])
+        self.app_tabs = widgets.Tab()
+        self.app_tabs.children = [self.w_dataset, self.w_raymarcher, self.w_hyperparams, self.w_inference] 
+        for t, title in enumerate(["Dataset", "Raymarcher", "Hyperparameters", "Inference"]):
+            self.app_tabs.set_title(t, title)
+        self.app = widgets.VBox([self.app_title, self.app_tabs])
     
     @property
     def scenes(self) -> List[str]:
