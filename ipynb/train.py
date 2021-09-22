@@ -1,6 +1,7 @@
 import nerf.infer
 import nerf.train
 import numpy as np
+import torch
 import torch.jit as jit
 
 from IPython.display import display
@@ -16,9 +17,13 @@ from torch.nn import MSELoss
 from torch.optim import Adam
 
 
+torch.backends.cudnn.benchmark = True
+
+
 class Trainer:
-    def __init__(self, config: TrainConfig) -> None:
+    def __init__(self, config: TrainConfig, verbose: bool = True) -> None:
         self.config = config
+        self.verbose = verbose
 
         self.dataset: BlenderDataset = None
         self.nerf: NeRF = None
@@ -61,10 +66,12 @@ class Trainer:
         self.setup[1, 0] = self.btn_raymarcher
         self.setup[1, 1] = self.btn_optimsuite
         
-        self.viz = GridspecLayout(2, 2)
+        self.viz = GridspecLayout(1, 2)
         self.viz[0, 0] = self.img_gt
         self.viz[0, 1] = self.img_pred
-        self.viz[1, 1] = self.label_pred
+        if not self.verbose:
+            self.viz = GridspecLayout(2, 2)
+            self.viz[1, 1] = self.label_pred
 
     def setup_dataset(self, change) -> None:
         if hasattr(self, "dataset"):
@@ -127,7 +134,7 @@ class Trainer:
         self.optim = Adam(self.nerf.parameters(), lr=lr)
         self.scaler = GradScaler(enabled=fp16)
 
-        print("[Setup] Optimsuite Ready")
+        print("[Setup] Optimizer Ready")
 
     def do_callback(self, epoch: int) -> bool:
         epochs = self.config.epochs()
@@ -153,7 +160,7 @@ class Trainer:
             path = self.config.pred_png
 
             args = self.raymarcher, ro, rd, W, H
-            pred = self.nerf.infer(*args, batch_size=batch_size, verbose=False)
+            pred = self.nerf.infer(*args, batch_size=batch_size, verbose=self.verbose)
             pred = pred.numpy().astype(np.uint8)
             
             img = PImage.fromarray(pred)
@@ -162,8 +169,10 @@ class Trainer:
             with open(path, "rb") as f:
                 self.img_pred.value = f.read()
 
-            mse, psnr = history.train[-1]
-            self.label_pred.value = f"EPOCH:{epoch + 1} - MSE: {mse:.2e} - PSNR: {psnr:.2f}"
+            if not self.verbose:
+                mse, psnr = history.train[-1]
+                msg = f"EPOCH:{epoch + 1} - MSE: {mse:.2e} - PSNR: {psnr:.2f}"
+                self.label_pred.value = msg
 
     def fit(self, change) -> None:
         if hasattr(self, "history"):
@@ -186,7 +195,7 @@ class Trainer:
             jobs=jobs,
             perturb=perturb,
             callbacks=self.callbacks,
-            verbose=False,
+            verbose=self.verbose,
         )
         print("[Train] Fitting Done")
 

@@ -94,7 +94,7 @@ class TrainConfig(Config):
         return f"./res/NeRF_{self.scene()}_pred.png"
 
 
-class RenderConfig(Config):
+class InferConfig(Config):
     def __init__(self, blender: str = "./data/blender") -> None:
         super().__init__(blender)
     
