@@ -98,7 +98,9 @@ A total of `N_c + N_f` is finally used to generate the last render, this time qu
 |![gt](imgs/gt.png)|![pred](imgs/pred.png)|
 
 *Inference*
-![gif](imgs/pred.gif)
+|Inference Animation|
+|:-----------------:|
+|![gif](imgs/pred.gif)|
 
 ## Citation
 
