@@ -172,11 +172,21 @@ def fit(
     modules = nerf, raymarcher, optim, criterion, scaler
 
     H = History()
-    for epoch in tqdm(range(epochs), desc="[NeRF] Epoch", disable=not verbose):
+    pbar = tqdm(range(epochs), desc="[NeRF] Epoch", disable=not verbose)
+    for epoch in pbar:
         H.train.append(step(*modules, train, d, split="train", perturb=perturb, verbose=verbose))
-        if val: H.val.append(step(*modules, val, d, split="val", verbose=verbose))
-        for callback in callbacks: callback(epoch, H)
-    if test: H.test = step(*modules, test, d, split="test", verbose=verbose)
+        pbar.set_postfix(mse=H.train[-1][0], psnr=H.train[-1][1])
+        
+        if val:
+            H.val.append(step(*modules, val, d, split="val", verbose=verbose))
+            pbar.set_postfix(mse=H.val[-1][0], psnr=H.val[-1][1])
+        
+        for callback in callbacks:
+            callback(epoch, H)
+    
+    if test:
+        H.test = step(*modules, test, d, split="test", verbose=verbose)
+        pbar.set_postfix(mse=H.test[0], psnr=H.test[1])
 
     return H
 
