@@ -16,6 +16,7 @@ class NeRF(Module):
         phi_d_sigma (float): input sigma for ray direction embedding
         width (int): base number of neurons for each layer (default: 256)
         depth (int): number of layers in each subnetwork (default: 4)
+        activ (Module): activation function used in hidden layers (default: ReLU)
     """
     
     def __init__(
@@ -26,6 +27,7 @@ class NeRF(Module):
         phi_d_sigma: float,
         width: int = 256,
         depth: int = 4,
+        activ: Module = ReLU,
     ) -> None:
         super().__init__()
         self.phi_x_dim = phi_x_dim
@@ -34,6 +36,7 @@ class NeRF(Module):
         self.phi_d_sigma = phi_d_sigma
         self.width = width
         self.depth = depth
+        self.activ = activ
 
         fc = [(self.width, self.width) for _ in range(self.depth - 1)]
         fc_1 = [(self.phi_x_dim * 2, self.width)] + fc
@@ -42,14 +45,14 @@ class NeRF(Module):
         self.phi_x = FourierFeatures(3, features=self.phi_x_dim, sigma=self.phi_x_sigma)
         self.phi_d = FourierFeatures(3, features=self.phi_d_dim, sigma=self.phi_d_sigma)
 
-        self.fc_1 = Sequential(*(Sequential(Linear(*io), ReLU()) for io in fc_1))
-        self.fc_2 = Sequential(*(Sequential(Linear(*io), ReLU()) for io in fc_2))
+        self.fc_1 = Sequential(*(Sequential(Linear(*io), activ()) for io in fc_1))
+        self.fc_2 = Sequential(*(Sequential(Linear(*io), activ()) for io in fc_2))
         
         self.sigma = Sequential(Linear(self.width, 1), ReLU())
         
         self.feature = Linear(self.width, self.width)
         self.rgb = Sequential(
-            Linear(self.phi_d_dim  * 2 + self.width, self.width // 2), ReLU(),
+            Linear(self.phi_d_dim  * 2 + self.width, self.width // 2), activ(),
             Linear(self.width // 2, 3), Sigmoid(),
         )
 

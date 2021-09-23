@@ -71,6 +71,20 @@ def loaders(
     return train, val, test
 
 
+def zero_grad(module: Module) -> Module:
+    """Zero out module gradients (Pytorch Blog advice: no optim.zero_grad())
+
+    Arguments:
+        module (Module): module to zero gradients out
+
+    Returns:
+        module (Module): module with gradients zero out
+    """
+    for p in module.parameters():
+        p.grad = None
+    return module
+
+
 def step(
     nerf: NeRF,
     raymarcher: BVR,
@@ -119,7 +133,7 @@ def step(
             scaler.scale(loss).backward()
             scaler.step(optim)
             scaler.update()
-            optim.zero_grad()
+            zero_grad(nerf)
 
         total_loss += loss.item() / len(loader)
         total_psnr += psnr.item() / len(loader)
