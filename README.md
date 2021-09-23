@@ -5,7 +5,8 @@ Efficient and comprehensive pytorch implementation of [NeRF: Representing Scenes
 ## Installation
 
 This implementation has been tested on `Ubuntu 20.04` with `Python 3.8`, and `torch 1.9`.
-The only requirements are `torch` and `torchvision`.
+Install required package first `pip3 install -r requirements.txt`.
+You may use `pyenv` or `conda` to avoid confilcts with your environement.
 
 ## Description
 
@@ -79,9 +80,9 @@ The weights `w_i` are reused for inverse transform sampling for the fine pass.
 A total of `N_c + N_f` is finally used to generate the last render, this time querying the coarse model instead.
 
 
-## Implementation
+## Implementation (WIP)
 
-*Status*
+*Status (WIP)*
 - [x] Fourier Featrure Encoding
 - [x] Neural Radiance Field Model
 - [x] Bounded Volume Raymarcher
@@ -92,15 +93,10 @@ A total of `N_c + N_f` is finally used to generate the last render, this time qu
 - [ ] Inference Optimization
 - [x] Interactive Notebook
 
-*Training*
-|Ground Truth|Prediction|
-|:----------:|:--------:|
-|![gt](imgs/gt.png)|![pred](imgs/pred.png)|
-
-*Inference*
-|Inference Animation|
-|:-----------------:|
-|![gif](imgs/pred.gif)|
+*Results (WIP)*
+|Ground Truth|Prediction|Inference Animation|
+|:----------:|:--------:|:-----------------:|
+|![gt](imgs/gt.png)|![pred](imgs/pred.png)|![gif](imgs/pred.gif)|
 
 ## Citation
 
