@@ -10,6 +10,7 @@ from ipywidgets.widgets import Button, FloatSlider, FloatRangeSlider, Image, Tab
 from moviepy.editor import ImageSequenceClip
 from nerf.data import BlenderDataset
 from nerf.core import NeRF, BoundedVolumeRaymarcher as BVR
+from PIL import Image as PImage 
 from tqdm.auto import tqdm
 
 
@@ -126,8 +127,12 @@ class Inferer:
             args = self.raymarcher, ro, rd, W, H
             pred = self.nerf.infer(*args, batch_size=batch_size, verbose=self.verbose)
             preds[i] = pred.numpy().astype(np.uint8)
-        print("[Setup] Rendering Done ")
 
+            PImage.fromarray(preds[i]).save(path)
+            with open(path, "rb") as f:
+                self.gif_pred.value = f.read()    
+
+        print("[Setup] Rendering Done ")
         clip = ImageSequenceClip(list(preds), durations=[1. / fps] * frames)
         clip.write_gif(path, fps=fps, verbose=self.verbose)
 
