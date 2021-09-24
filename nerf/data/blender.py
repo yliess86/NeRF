@@ -5,11 +5,11 @@ import json
 
 from nerf.core.ray import pinhole_ray_directions, phinhole_ray_projection
 from nerf.data.path import turnaround_poses
+from nerf.utils.pbar import tqdm
 from PIL import Image
 from torch import FloatTensor, Tensor
 from torch.utils.data import Dataset
 from torchvision.transforms import ToTensor
-from tqdm.auto import tqdm
 from typing import Any, Dict, Tuple
 
 

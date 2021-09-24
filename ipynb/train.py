@@ -57,21 +57,17 @@ class Trainer:
 
         self.img_gt = Image(value=b"", format="png", width=256, height=256)
         self.img_pred = Image(value=b"", format="png", width=256, height=256)
-        self.label_pred = Text(value="EPOCH: 0 - MSE: None - PSNR: None", disabled=True)
 
     def setup_layouts(self) -> None:
-        self.setup = GridspecLayout(2, 2)
+        self.setup = GridspecLayout(1, 4)
         self.setup[0, 0] = self.btn_dataset
         self.setup[0, 1] = self.btn_model
-        self.setup[1, 0] = self.btn_raymarcher
-        self.setup[1, 1] = self.btn_optimsuite
+        self.setup[0, 2] = self.btn_raymarcher
+        self.setup[0, 3] = self.btn_optimsuite
         
         self.viz = GridspecLayout(1, 2)
         self.viz[0, 0] = self.img_gt
         self.viz[0, 1] = self.img_pred
-        if not self.verbose:
-            self.viz = GridspecLayout(2, 2)
-            self.viz[1, 1] = self.label_pred
 
     def setup_dataset(self, change) -> None:
         if hasattr(self, "dataset"):
@@ -141,7 +137,8 @@ class Trainer:
         log = self.config.log()
 
         return (
-            epoch % (log - 1) == 0 or
+            epoch == 0 or
+            (epoch + 1) % log == 0 or
             epoch == (epochs - 1)
         )
 
@@ -171,9 +168,8 @@ class Trainer:
 
             if not self.verbose:
                 mse, psnr = history.train[-1]
-                msg = f"EPOCH:{epoch + 1} - MSE: {mse:.2e} - PSNR: {psnr:.2f}"
-                self.label_pred.value = msg
-
+                print(f"[NeRF] EPOCH:{epoch + 1} - MSE: {mse:.2e} - PSNR: {psnr:.2f}")
+    
     def fit(self, change) -> None:
         if hasattr(self, "history"):
             del self.history

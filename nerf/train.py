@@ -3,12 +3,12 @@ import torch
 from dataclasses import dataclass, field
 from nerf.core.model import NeRF
 from nerf.core.renderer import BoundedVolumeRaymarcher as BVR
+from nerf.utils.pbar import tqdm
 from torch import device
 from torch.cuda.amp import autocast, GradScaler
 from torch.nn import Module
 from torch.optim import Optimizer
 from torch.utils.data import DataLoader, Dataset
-from tqdm.auto import tqdm
 from typing import Callable, Iterable, List, Optional, Tuple
 
 
@@ -71,20 +71,6 @@ def loaders(
     return train, val, test
 
 
-def zero_grad(module: Module) -> Module:
-    """Zero out module gradients (Pytorch Blog advice: no optim.zero_grad())
-
-    Arguments:
-        module (Module): module to zero gradients out
-
-    Returns:
-        module (Module): module with gradients zero out
-    """
-    for p in module.parameters():
-        p.grad = None
-    return module
-
-
 def step(
     nerf: NeRF,
     raymarcher: BVR,
@@ -133,7 +119,7 @@ def step(
             scaler.scale(loss).backward()
             scaler.step(optim)
             scaler.update()
-            zero_grad(nerf)
+            optim.zero_grad(set_to_none=True)
 
         total_loss += loss.item() / len(loader)
         total_psnr += psnr.item() / len(loader)

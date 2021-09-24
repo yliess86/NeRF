@@ -10,8 +10,8 @@ from ipywidgets.widgets import Button, FloatSlider, FloatRangeSlider, Image, Tab
 from moviepy.editor import ImageSequenceClip
 from nerf.data import BlenderDataset
 from nerf.core import NeRF, BoundedVolumeRaymarcher as BVR
+from nerf.utils.pbar import tqdm
 from PIL import Image as PImage 
-from tqdm.auto import tqdm
 
 
 torch.backends.cudnn.benchmark = True
@@ -53,10 +53,10 @@ class Inferer:
         self.gif_pred = Image(value=b"", format="gif", width=256, height=256)
 
     def setup_layouts(self) -> None:
-        self.setup = GridspecLayout(2, 2)
+        self.setup = GridspecLayout(1, 3)
         self.setup[0, 0] = self.btn_dataset
-        self.setup[1, 0] = self.btn_model
-        self.setup[1, 1] = self.btn_raymarcher
+        self.setup[0, 1] = self.btn_model
+        self.setup[0, 2] = self.btn_raymarcher
 
         self.traj = GridspecLayout(2, 2)
         self.traj[0, 0] = self.w_radius
