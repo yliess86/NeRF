@@ -83,15 +83,25 @@ class StandardTabsWidget:
         if name in self.widgets:
             self.widgets[name].disabled = True
 
-    def enable(self) -> None:
-        """Enable all Widgets"""
-        for widget in self.widgets.values():
-            widget.disabled = False
+    def enable(self, excp: List[str] = []) -> None:
+        """Enable all Widgets
+        
+        Arguments:
+            excp (List[str]): Widgets exception list name
+        """
+        for wname, widget in self.widgets.items():
+            if wname not in excp:
+                widget.disabled = False
 
-    def disable(self) -> None:
-        """Disable all Widgets"""
-        for widget in self.widgets.values():
-            widget.disabled = True
+    def disable(self, excp: List[str] = []) -> None:
+        """Disable all Widgets
+        
+        Arguments:
+            excp (List[str]): Widgets exception list name
+        """
+        for wname, widget in self.widgets.items():
+            if wname not in excp:
+                widget.disabled = True
 
     def setup_widgets(self) -> None:
         raise NotImplementedError("'setup' Not Implemented Yet!")

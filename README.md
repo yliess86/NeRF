@@ -174,10 +174,10 @@ A total of `N_c + N_f` is finally used to generate the last render, this time qu
 - [x] Bounded Volume Raymarcher
 - [x] Noise for Continuous Representation
 - [x] Camera Paths (Turnaround, ...)
-- [ ] Fine Network
-- [ ] Training Optimization
-- [ ] Inference Optimization
 - [x] Interactive Notebook
+- [x] Meta-Learning as in [Tanick et al.](https://arxiv.org/abs/2012.02189) (see [Nichol et al.]((https://arxiv.org/abs/1803.02999)))
+- [ ] Fine Network
+- [ ] Inference Optimization
 
 *Results (WIP)*
 |Ground Truth|Prediction|Inference Animation|

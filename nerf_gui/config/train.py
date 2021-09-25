@@ -45,12 +45,21 @@ class TrainConfig(Config):
         self.register_widget("fp16", Checkbox(value=True, description="Half Precision"))
         self.register_widget("batch_size", IntSlider(min=2, max=2 ** 16, step=2, value=2 ** 12, description="Batch Size"))
         self.register_widget("jobs", IntSlider(min=0, max=32, step=1, value=cpu_count() // 2, description="Jobs"))
+
+        self.register_widget("meta", Checkbox(value=False, description="Meta Learning"))
+        self.register_widget("meta_steps", IntSlider(min=1, max=100, step=1, value=16, description="Meta Steps", disabled=True))
+
+        def on_meta_change(change) -> None:
+            self.w_meta_steps.disabled = not change.new
+        
+        self.w_meta.observe(on_meta_change, "value")
         
     def setup_tabs(self) -> None:
         self.register_tab("dataset", 2, 2, ["scene", None, "step", "scale"])
         self.register_tab("model", 2, 2, ["features", "sigma", "width", "depth"])
         self.register_tab("raymarcher", 2, 2, ["t", None, "samples", "perturb"])
         self.register_tab("hyperparams", 3, 2, ["epochs", "log", "lr", "fp16", "batch_size", "jobs"])
+        self.register_tab("meta learning", 1, 2, ["meta", "meta_steps"])
     
     @property
     def scenes(self) -> List[str]:

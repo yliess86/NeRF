@@ -176,6 +176,8 @@ class Trainer(StandardTabsWidget):
         batch_size = self.config.batch_size()
         jobs = self.config.jobs()
         perturb = self.config.perturb()
+        meta = self.config.meta()
+        meta_steps = self.config.meta_steps()
 
         print("[Train] Fitting")
         self.history = self.nerf.fit(
@@ -188,6 +190,8 @@ class Trainer(StandardTabsWidget):
             batch_size=batch_size,
             jobs=jobs,
             perturb=perturb,
+            meta=meta,
+            meta_steps=meta_steps,
             callbacks=self.callbacks,
             verbose=self.verbose,
         )
