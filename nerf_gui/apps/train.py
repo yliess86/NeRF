@@ -167,11 +167,8 @@ class Trainer(StandardTabsWidget):
         if hasattr(self, "history"):
             del self.history
 
-        self.w_btn_dataset.disabled = True
-        self.w_btn_model.disabled = True
-        self.w_btn_raymarcher.disabled = True
-        self.w_btn_optimsuite.disabled = True
-        self.w_btn_fit.disabled = True
+        self.config.disable()
+        self.disable()
         
         self.config.save(self.config.config_yml)
 

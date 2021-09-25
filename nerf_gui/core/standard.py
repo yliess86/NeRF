@@ -65,6 +65,34 @@ class StandardTabsWidget:
                 if wname := widgets_name[r * cols + c]:
                     grid[r, c] = getattr(self, f"w_{wname}")
 
+    def enable_widget(self, name: str) -> None:
+        """Enable Widget given Name
+        
+        Arguments:
+            name (str): Widget name
+        """
+        if name in self.widgets:
+            self.widgets[name].disabled = False
+    
+    def disable_widget(self, name: str) -> None:
+        """Disable Widget given Name
+        
+        Arguments:
+            name (str): Widget name
+        """
+        if name in self.widgets:
+            self.widgets[name].disabled = True
+
+    def enable(self) -> None:
+        """Enable all Widgets"""
+        for widget in self.widgets.values():
+            widget.disabled = False
+
+    def disable(self) -> None:
+        """Disable all Widgets"""
+        for widget in self.widgets.values():
+            widget.disabled = True
+
     def setup_widgets(self) -> None:
         raise NotImplementedError("'setup' Not Implemented Yet!")
 

@@ -91,10 +91,8 @@ class Inferer(StandardTabsWidget):
         print("[Setup] Raymarcher Ready")
 
     def render(self, change) -> None:
-        self.w_btn_dataset.disabled = True
-        self.w_btn_model.disabled = True
-        self.w_btn_raymarcher.disabled = True
-        self.w_btn_render.disabled = True
+        self.config.disable()
+        self.disable()
 
         frames = self.config.frames()
         fps = self.config.fps()
