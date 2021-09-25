@@ -5,12 +5,12 @@ import torch
 import torch.jit as jit
 
 from IPython.display import display
-from ipynb.config import TrainConfig
-from ipywidgets import GridspecLayout
-from ipywidgets.widgets import Button, Image, Tab, Text, VBox
+from ipywidgets.widgets import Button, Image, Layout, VBox
 from nerf.data import BlenderDataset
 from nerf.core import NeRF, BoundedVolumeRaymarcher as BVR
 from nerf.train import History
+from nerf_gui.core.standard import StandardTabsWidget
+from nerf_gui.config.train import TrainConfig
 from PIL import Image as PImage
 from torch.cuda.amp import GradScaler
 from torch.nn import MSELoss
@@ -20,8 +20,16 @@ from torch.optim import Adam
 torch.backends.cudnn.benchmark = True
 
 
-class Trainer:
+class Trainer(StandardTabsWidget):
+    """Trainer Widget
+    
+    Arguments:
+        config (TrainConfig): Training configuration
+        verbose (bool): Verbose for tqdm (default: True)
+    """
+
     def __init__(self, config: TrainConfig, verbose: bool = True) -> None:
+        super().__init__()
         self.config = config
         self.verbose = verbose
 
@@ -33,41 +41,26 @@ class Trainer:
         self.scaler: GradScaler = None
         self.history: History = None
         self.callbacks = [self.save_callback, self.render_callback]
-        
-        self.setup_widgets()
-        self.setup_layouts()
-
-        self.app = Tab(children=[self.setup, self.btn_fit, self.viz])
-        self.app.set_title(0, "Setup")
-        self.app.set_title(1, "Train")
-        self.app.set_title(2, "Viz")
 
     def setup_widgets(self) -> None:
-        self.btn_dataset = Button(description="Setup Dataset")
-        self.btn_model = Button(description="Setup Model")
-        self.btn_raymarcher = Button(description="Setup Raymarcher")
-        self.btn_optimsuite = Button(description="Setup Optimizer")
-        self.btn_fit = Button(description="Fit")
+        self.register_widget("btn_dataset", Button(description="Dataset", icon="database", layout=Layout(width="80%", height="100%")))
+        self.register_widget("btn_model", Button(description="Model", icon="tasks", layout=Layout(width="80%", height="100%")))
+        self.register_widget("btn_raymarcher", Button(description="Raymarcher", icon="cloud", layout=Layout(width="80%", height="100%")))
+        self.register_widget("btn_optimsuite", Button(description="Optimizer", icon="spinner", layout=Layout(width="80%", height="100%")))
+        self.register_widget("btn_fit", Button(description="Fit", icon="space-shuttle", layout=Layout(width="80%", height="100%")))
 
-        self.btn_dataset.on_click(self.setup_dataset)
-        self.btn_model.on_click(self.setup_model)
-        self.btn_raymarcher.on_click(self.setup_raymarcher)
-        self.btn_optimsuite.on_click(self.setup_optimsuite)
-        self.btn_fit.on_click(self.fit)
+        self.register_widget("img_gt", Image(value=b"", format="png", width=256, height=256, layout=Layout(width="80%")))
+        self.register_widget("img_pred", Image(value=b"", format="png", width=256, height=256, layout=Layout(width="80%")))
 
-        self.img_gt = Image(value=b"", format="png", width=256, height=256)
-        self.img_pred = Image(value=b"", format="png", width=256, height=256)
+        self.w_btn_dataset.on_click(self.setup_dataset)
+        self.w_btn_model.on_click(self.setup_model)
+        self.w_btn_raymarcher.on_click(self.setup_raymarcher)
+        self.w_btn_optimsuite.on_click(self.setup_optimsuite)
+        self.w_btn_fit.on_click(self.fit)
 
-    def setup_layouts(self) -> None:
-        self.setup = GridspecLayout(1, 4)
-        self.setup[0, 0] = self.btn_dataset
-        self.setup[0, 1] = self.btn_model
-        self.setup[0, 2] = self.btn_raymarcher
-        self.setup[0, 3] = self.btn_optimsuite
-        
-        self.viz = GridspecLayout(1, 2)
-        self.viz[0, 0] = self.img_gt
-        self.viz[0, 1] = self.img_pred
+    def setup_tabs(self) -> None:
+        self.register_tab("actions", 1, 5, ["btn_dataset", "btn_model", "btn_raymarcher", "btn_optimsuite", "btn_fit"])
+        self.register_tab("viz", 1, 2, ["img_gt", "img_pred"])
 
     def setup_dataset(self, change) -> None:
         if hasattr(self, "dataset"):
@@ -91,7 +84,7 @@ class Trainer:
         img.save(path)
 
         with open(path, "rb") as f:
-            self.img_gt.value = f.read()
+            self.w_img_gt.value = f.read()
 
         print("[Setup] Dataset Ready")
 
@@ -164,7 +157,7 @@ class Trainer:
             img.save(path)
 
             with open(path, "rb") as f:
-                self.img_pred.value = f.read()
+                self.w_img_pred.value = f.read()
 
             if not self.verbose:
                 mse, psnr = history.train[-1]
@@ -173,6 +166,14 @@ class Trainer:
     def fit(self, change) -> None:
         if hasattr(self, "history"):
             del self.history
+
+        self.w_btn_dataset.disabled = True
+        self.w_btn_model.disabled = True
+        self.w_btn_raymarcher.disabled = True
+        self.w_btn_optimsuite.disabled = True
+        self.w_btn_fit.disabled = True
+        
+        self.config.save(self.config.config_yml)
 
         epochs = self.config.epochs()
         batch_size = self.config.batch_size()

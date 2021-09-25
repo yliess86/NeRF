@@ -59,6 +59,7 @@ def read_data(
         base_dir (str): data directory
         meta (Dict[str, Any]): dataset metadata
         step (int): read every x file
+            if step is `None` it will only read the first file
         scale (float): scale for smaller images
 
     Returns:
@@ -66,7 +67,7 @@ def read_data(
         poses (Tensor): camera to world matrices (N, 4, 4)
     """
     to_tensor = ToTensor()
-    frames = meta["frames"][::step]
+    frames = meta["frames"][::step] if step else meta["frames"][:1]
     
     imgs, poses = [], []
     for frame in tqdm(frames, desc=f"[{str(dataset)}] Loading Data"):
@@ -132,6 +133,9 @@ class BlenderDataset(Dataset):
         scene (str): blender scene
         split (int): dataset split ("train", "val", "test")
         step (int): read every x frame (default: 1)
+            if step is `None` the dataset will just behave
+            as a placeholder to create path given focal infos.
+            It won't exhibit properties such as len nor getitem. 
         scale (float): scale for smaller images (default: 1.)
     """
 
@@ -161,13 +165,14 @@ class BlenderDataset(Dataset):
         self.focal = read_focal(self.W, self.meta, self.scale)
         self.near, self.far = 2., 6.
         
-        self.ro, self.rd = build_rays(
-            self, *self.SIZE, self.focal, self.poses,
-        )
+        if step:
+            self.ro, self.rd = build_rays(
+                self, *self.SIZE, self.focal, self.poses,
+            )
 
-        self.C = self.imgs.view(-1, 3)
-        self.ro = self.ro.view(-1, 3)
-        self.rd = self.rd.view(-1, 3)
+            self.C = self.imgs.view(-1, 3)
+            self.ro = self.ro.view(-1, 3)
+            self.rd = self.rd.view(-1, 3)
 
     def turnaround_data(
         self,
