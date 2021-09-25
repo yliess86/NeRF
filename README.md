@@ -2,12 +2,91 @@
 
 Efficient and comprehensive pytorch implementation of [NeRF: Representing Scenes as Neural Radiance Fields for View Synthesis](https://arxiv.org/abs/2003.08934) from Mildenhall et al. 2020.
 
+<img src="imgs/pred.gif" alt="gif" width="256" height="256">
+
+*Table of Content*
+- [Installation](#installation)
+- [Quickstart](#quickstart)
+- [Description](#description)
+  - [Positional Encoding](#positionalencoding)
+  - [Implicit Representation](#implicitrepresentation)
+  - [Volume Rendering](#volumerendering)
+- [Implemenation](#implementation)
+- [Citation](#citation)
+
+
+<span id="installation"></span>
 ## Installation
 
 This implementation has been tested on `Ubuntu 20.04` with `Python 3.8`, and `torch 1.9`.
 Install required package first `pip3 install -r requirements.txt`.
 You may use `pyenv` or `conda` to avoid confilcts with your environement.
 
+Download the [Blender Scenes Dataset](https://drive.google.com/file/d/18JxhpWD-4ZmuFKLzKlAw-w5PpzZxXOcG/view?usp=sharing).
+Rename it and place it in the repo as `data/blender` *([ingored](.gitignore) by default)*.
+
+```txt
+data/
+└── blender
+    ├── chair
+    ├── drums
+    ├── ficus
+    ├── hotdog
+    ├── lego
+    ├── materials
+    ├── mic
+    └── ship
+```
+
+
+<span id="quickstart"></span>
+## Quickstart
+
+*Jupyter Notebook*
+
+You first need to activate [Jupyter Notebook Widgets](https://ipywidgets.readthedocs.io/en/latest/user_install.html).
+Then, start the [nerf.ipynb](nerf.ipynb) notebook `jupyter notebook nerf.ipynb`.
+Run all the Cells and you will be granted with GUIs allowing you to config, train and perform inference on `Blender Scenes Dataset`.
+
+*Manual*
+
+```python
+# ==== Imports
+import nerf.infer         # Enables inference features (NeRF.infer)
+import nerf.train         # Enables training features (NeRF.fit)
+
+from nerf.core import BoundedVolumeRaymarcher as BVR, NeRF
+from nerf.data import BlenderDataset
+
+
+# ==== Setup
+dataset = BlenderDataset("./data/blender", "hotdog", "train")
+nerf = NeRF(256, 256, 26., 26., 256, 4).to(device)
+raymarcher = BVR(2., 6., 128)
+
+# ==== Train
+history = nerf.fit(
+    nerf,                 # NeRF Module
+    raymarcher,           # Raymarcher (BVR)
+    optim,                # Optimizer (Adam, AdamW, ...)
+    criterion,            # Criterion (MSELoss, L1Loss, ...)
+    scaler,               # GradScaler (torch.cuda.amp, can be disabled)
+    dataset: Dataset,     # Dataset (BlenderDataset)
+)                         # More options available (epochs, batch_size, ...)
+
+# ==== Infer
+frame = nerf.infer(
+    nerf,                 # NeRF Module
+    raymarcher,           # Raymarcher (BVR)
+    ro,                   # Rays Origin (Tensor of size (B, 3))
+    rd,                   # Rays Direction (Tensor of size (B, 3))
+    W,                    # Frame Width
+    H,                    # Frame Height
+)                         # More options available (epochs, batch_size, ...)
+```
+
+
+<span id="description"></span>
 ## Description
 
 NeRF uses both advances in Computer Graphics and Deep Learning research.
@@ -22,6 +101,8 @@ The networks are tied to one unique scene.
 Caching and acceleration structures can be used to decrease rendering time during inference.
 The same models can be used to generate a depth map and a 3D mesh of the scene.
 
+
+<span id="positionalencoding"></span>
 ### Positional Encoding
 
 In [Fourier Features Let Networks Learn High Frequency Functions in Low Dimensional Domains](https://arxiv.org/abs/2006.10739), Tancik et al 2020, NeRF authors have shown that encoding positions using fourier feature mapping enables multilayer perceptron to learn high-frequency functions in low dimensional problem domains.
@@ -38,6 +119,8 @@ phi = lambda v: [
 ].T
 ```
 
+
+<span id="implicitrepresentation"></span>
 ### Implicit Representation
 
 The scene is encoded by feating a simple multilayer perceptron architecture on density `sigma` and color `RGB` given position `x` and direction `d` queries.
@@ -59,6 +142,8 @@ phi(x) --> 256 --> 256 --> ReLU(sigma)
                                 24
 ```
 
+
+<span id="volumerendering"></span>
 ### Volume Rendering
 
 Volume raymarching is used to produce the final rendering.
@@ -80,6 +165,7 @@ The weights `w_i` are reused for inverse transform sampling for the fine pass.
 A total of `N_c + N_f` is finally used to generate the last render, this time querying the coarse model instead.
 
 
+<span id="implementation"></span>
 ## Implementation (WIP)
 
 *Status (WIP)*
@@ -98,6 +184,8 @@ A total of `N_c + N_f` is finally used to generate the last render, this time qu
 |:----------:|:--------:|:-----------------:|
 |![gt](imgs/gt.png)|![pred](imgs/pred.png)|![gif](imgs/pred.gif)|
 
+
+<span id="citation"></span>
 ## Citation
 
 *Original Work*
