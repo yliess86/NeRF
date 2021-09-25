@@ -48,4 +48,4 @@ class InferConfig(Config):
     
     @property
     def pred_gif(self) -> str:
-        return os.path.join(self.tcfg.res, f"NeRF_{self.scene}_pred.gif")
+        return os.path.join(self.tcfg.res, f"NeRF_{self.scene()}_pred.gif")
