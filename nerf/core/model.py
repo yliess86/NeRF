@@ -2,7 +2,7 @@ import torch
 
 from nerf.core.features import FourierFeatures
 from torch import Tensor
-from torch.nn import Linear, Module, ReLU, Sequential, Sigmoid
+from torch.nn import Linear, Module, ReLU, Sequential, Sigmoid, Softplus
 from typing import Tuple
 
 
@@ -48,7 +48,7 @@ class NeRF(Module):
         self.fc_1 = Sequential(*(Sequential(Linear(*io), activ()) for io in fc_1))
         self.fc_2 = Sequential(*(Sequential(Linear(*io), activ()) for io in fc_2))
         
-        self.sigma = Sequential(Linear(self.width, 1), ReLU())
+        self.sigma = Sequential(Linear(self.width, 1), Softplus())
         
         self.feature = Linear(self.width, self.width)
         self.rgb = Sequential(
