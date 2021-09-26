@@ -72,6 +72,106 @@ def loaders(
     return train, val, test
 
 
+def build_meta(
+    nerf: NeRF,
+    optim: Optimizer,
+    scaler: GradScaler,
+) -> Tuple[NeRF, Optimizer, GradScaler]:
+    """Build Meta Learning Objects
+
+    Arguments:
+        nerf (NeRF): neural radiance field model to be trained
+        optim (Optimizer): optimization strategy
+        scaler (GradScaler): grad scaler for half precision (fp16)
+
+    Returns:
+        meta_nerf (NeRF): meta neural radiance field model to be trained
+        meta_optim (Optimizer): meta optimizer strategy
+        meta_scaler (GradScaler): meta grad scaler for half precision (fp16)
+    """
+    optim_lr = optim.param_groups[0]["lr"]
+    optim_cls = optim.__class__
+
+    meta_nerf = deepcopy(nerf)
+    meta_optim = optim_cls(meta_nerf.parameters(), lr=optim_lr)
+    meta_scaler = deepcopy(scaler)
+
+    return meta_nerf, meta_optim, meta_scaler
+
+
+def meta_initialization(
+    nerf: NeRF,
+    raymarcher: BVR,
+    optim: Optimizer,
+    criterion: Module,
+    scaler: GradScaler,
+    loader: DataLoader,
+    d: device,
+    perturb: Optional[bool] = False,
+    meta_steps: Optional[int] = 16,
+    verbose: Optional[bool] = True,
+) -> Tuple[float, float]:
+    """Meta Initialization
+
+    Arguments:
+        nerf (NeRF): neural radiance field model to be trained
+        raymarcher (BVR): bounded volume raymarching renderer
+        optim (Optimizer): optimization strategy
+        criterion (Module): objective function
+        scaler (GradScaler): grad scaler for half precision (fp16)
+        loader (DataLoader): batch data loader
+        d (device): torch device to send the batch on
+        perturb (Optional[bool]): peturb ray query segment (default: False)
+        meta_steps (Optional[int]): number of meta steps to perform before updating (default: 16)
+        verbose (Optional[bool]): print tqdm (default: True)
+
+    Returns:
+        total_loss (float): arveraged cumulated total loss
+        total_psnr (float): arveraged cumulated total psnr
+    """
+    nerf = nerf.train()
+    
+    total_loss = 0.
+    total_psnr = 0.
+    batches = tqdm(loader, desc=f"[NeRF] Meta Initialization", disable=not verbose)
+    for C, ro, rd in batches:
+        C, ro, rd = C.to(d), ro.to(d), rd.to(d)
+        meta_nerf, meta_optim, meta_scaler = build_meta(nerf, optim, scaler)
+
+        for _ in range(meta_steps):
+            with autocast(enabled=scaler.is_enabled()):
+                C_ = raymarcher.render_volume(meta_nerf, ro, rd, perturb=perturb)
+                meta_loss = criterion(C_, C)
+
+            meta_scaler.scale(meta_loss).backward()
+            meta_scaler.step(meta_optim)
+            meta_scaler.update()
+            meta_optim.zero_grad(set_to_none=True)
+
+        with torch.no_grad():
+            for p, meta_p in zip(nerf.parameters(), meta_nerf.parameters()):
+                p.grad = scaler.scale(p - meta_p)
+
+            with autocast(enabled=scaler.is_enabled()):
+                C_ = raymarcher.render_volume(nerf, ro, rd, perturb=perturb)
+                loss = criterion(C_, C)
+                psnr = -10. * torch.log10(loss)
+        
+        scaler.step(optim)
+        scaler.update()
+        optim.zero_grad(set_to_none=True)
+
+        total_loss += loss.item() / len(loader)
+        total_psnr += psnr.item() / len(loader)
+        batches.set_postfix(loss=total_loss, psnr=total_psnr)
+        
+        del meta_nerf
+        del meta_optim
+        del meta_scaler
+
+    return total_loss, total_psnr
+
+
 def step(
     nerf: NeRF,
     raymarcher: BVR,
@@ -81,11 +181,7 @@ def step(
     loader: DataLoader,
     d: device,
     split: str,
-    perturb: bool = False,
-    meta_nerf: Optional[NeRF] = None,
-    meta_optim: Optional[Optimizer] = None,
-    meta_scaler: Optional[GradScaler] = None,
-    meta_steps: Optional[int] = 16,
+    perturb: Optional[bool] = False,
     verbose: Optional[bool] = True,
 ) -> Tuple[float, float]:
     """Training/Validation/Testing step
@@ -99,12 +195,8 @@ def step(
         loader (DataLoader): batch data loader
         d (device): torch device to send the batch on
         split (str): step state ("train", "val", "test")
-        perturb (bool): peturb ray query segment (default: False)
-        meta_nerf (NeRF): meta neural radiance field model to be trained (default: None)
-        meta_optim (Optimizer): meta optimizer strategy (default: None)
-        meta_scaler (GradScaler): meta grad scaler for half precision (fp16) (default: None)
-        meta_steps (int): number of meta steps to perform before updating (default: 16)
-        verbose (bool): print tqdm (default: True)
+        perturb (Optional[bool]): peturb ray query segment (default: False)
+        verbose (Optional[bool]): print tqdm (default: True)
 
     Returns:
         total_loss (float): arveraged cumulated total loss
@@ -112,38 +204,20 @@ def step(
     """
     train = split == "train"
     nerf = nerf.train(train)
-
-    meta = meta_nerf and meta_optim and train
-    if meta: meta_nerf = meta_nerf.train()
-
+    
     total_loss = 0.
     total_psnr = 0.
     batches = tqdm(loader, desc=f"[NeRF] {split.capitalize()}", disable=not verbose)
     for C, ro, rd in batches:
         C, ro, rd = C.to(d), ro.to(d), rd.to(d)
 
-        if meta:
-            for _ in range(meta_steps):
-                with autocast(enabled=scaler.is_enabled()):
-                    C_ = raymarcher.render_volume(meta_nerf, ro, rd, perturb=perturb)
-                    meta_loss = criterion(C_, C)
-
-                meta_scaler.scale(meta_loss).backward()
-                meta_scaler.step(meta_optim)
-                meta_scaler.update()
-                meta_optim.zero_grad(set_to_none=True)
-
-            with torch.no_grad():
-                for p, meta_p in zip(nerf.parameters(), meta_nerf.parameters()):
-                    p.grad = scaler.scale(p - meta_p)
-
         with autocast(enabled=scaler.is_enabled()):
             C_ = raymarcher.render_volume(nerf, ro, rd, perturb=perturb)
             loss = criterion(C_, C)
             psnr = -10. * torch.log10(loss)
         
-        if not meta: scaler.scale(loss).backward()
         if train:
+            scaler.scale(loss).backward()
             scaler.step(optim)
             scaler.update()
             optim.zero_grad(set_to_none=True)
@@ -153,35 +227,6 @@ def step(
         batches.set_postfix(loss=total_loss, psnr=total_psnr)
 
     return total_loss, total_psnr
-
-
-def try_build_metas(
-    nerf: NeRF,
-    optim: Optimizer,
-    scaler: GradScaler,
-    meta: Optional[bool] = False,
-) -> Tuple[NeRF, Optimizer, GradScaler]:
-    """Try to build Meta Learning Objects
-
-    Arguments:
-        nerf (NeRF): neural radiance field model to be trained
-        optim (Optimizer): optimization strategy
-        scaler (GradScaler): grad scaler for half precision (fp16)
-        meta (Optional[bool]): use meta learning (default: False)
-
-    Returns:
-        meta_nerf (NeRF): meta neural radiance field model to be trained (default: None)
-        meta_optim (Optimizer): meta optimizer strategy (default: None)
-        meta_scaler (GradScaler): meta grad scaler for half precision (fp16) (default: None)
-    """
-    optim_lr = optim.param_groups[0]["lr"]
-    optim_cls = optim.__class__
-
-    meta_nerf = deepcopy(nerf) if meta else None
-    meta_optim = optim_cls(meta_nerf.parameters(), lr=optim_lr) if meta else None
-    meta_scaler = deepcopy(scaler)
-
-    return meta_nerf, meta_optim, meta_scaler
 
 
 def fit(
@@ -231,17 +276,13 @@ def fit(
     d = next(nerf.parameters()).device
     args = nerf, raymarcher, optim, criterion, scaler
 
-    meta_nerf, meta_optim, meta_scaler = try_build_metas(nerf, optim, scaler, meta=meta)
-    meta_args = {
-        "meta_nerf": meta_nerf,
-        "meta_optim": meta_optim,
-        "meta_scaler": meta_scaler,
-        "meta_steps": meta_steps,
-    }
-    
-    train_opt = { "split": "train", "perturb": perturb, **meta_args, "verbose": verbose }
+    meta_opt = { "perturb": perturb, "meta_steps": meta_steps, "verbose": verbose }
+    train_opt = { "split": "train", "perturb": perturb, "verbose": verbose }
     val_opt = { "split": "val", "verbose": verbose }
     test_opt = { "split": "test", "verbose": verbose }
+
+    if meta:
+        meta_initialization(*args, train, d, **meta_opt)
 
     H = History()
     pbar = tqdm(range(epochs), desc="[NeRF] Epoch", disable=not verbose)

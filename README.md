@@ -175,7 +175,8 @@ A total of `N_c + N_f` is finally used to generate the last render, this time qu
 - [x] Noise for Continuous Representation
 - [x] Camera Paths (Turnaround, ...)
 - [x] Interactive Notebook
-- [x] Meta-Learning as in [Tanick et al.](https://arxiv.org/abs/2012.02189) (see [Nichol et al.]((https://arxiv.org/abs/1803.02999)))
+- [x] Meta-Learning as in [Tanick et al.](https://arxiv.org/abs/2012.02189) (see [Nichol et al.](https://arxiv.org/abs/1803.02999))
+- [x] Softplus for Sigma as in (see [Barron et al.](https://arxiv.org/abs/2103.13415))
 - [ ] Fine Network
 - [ ] Inference Optimization
 
