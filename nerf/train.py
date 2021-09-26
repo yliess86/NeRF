@@ -8,7 +8,7 @@ from nerf.utils.pbar import tqdm
 from torch import device
 from torch.cuda.amp import autocast, GradScaler
 from torch.nn import Module
-from torch.optim import Optimizer
+from torch.optim import Optimizer, SGD
 from torch.utils.data import DataLoader, Dataset
 from typing import Callable, Iterable, List, Optional, Tuple
 
@@ -90,10 +90,9 @@ def build_meta(
         meta_scaler (GradScaler): meta grad scaler for half precision (fp16)
     """
     optim_lr = optim.param_groups[0]["lr"]
-    optim_cls = optim.__class__
 
     meta_nerf = deepcopy(nerf)
-    meta_optim = optim_cls(meta_nerf.parameters(), lr=optim_lr)
+    meta_optim = SGD(meta_nerf.parameters(), lr=optim_lr * 1e3, momentum=0.9)
     meta_scaler = deepcopy(scaler)
 
     return meta_nerf, meta_optim, meta_scaler

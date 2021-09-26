@@ -2,7 +2,10 @@
 
 Efficient and comprehensive pytorch implementation of [NeRF: Representing Scenes as Neural Radiance Fields for View Synthesis](https://arxiv.org/abs/2003.08934) from Mildenhall et al. 2020.
 
-<img src="imgs/pred.gif" alt="gif" width="256" height="256">
+<p align="center">
+  <img src="imgs/hotdog/pred.png" alt="hotdog_pred" width=40%>
+  <img src="imgs/drums/pred.png" alt="drums_pred" width=40%>
+</p>
 
 *Table of Content*
 - [Installation](#installation)
@@ -183,7 +186,8 @@ A total of `N_c + N_f` is finally used to generate the last render, this time qu
 *Results (WIP)*
 |Ground Truth|Prediction|Inference Animation|
 |:----------:|:--------:|:-----------------:|
-|![gt](imgs/gt.png)|![pred](imgs/pred.png)|![gif](imgs/pred.gif)|
+|![hotdog_gt](imgs/hotdog/gt.png)|![hotdog_pred](imgs/hotdog/pred.png)|![hotdog_gif](imgs/hotdog/pred.gif)|
+|![drums_gt](imgs/drums/gt.png)|![drums_pred](imgs/drums/pred.png)||
 
 
 <span id="citation"></span>
