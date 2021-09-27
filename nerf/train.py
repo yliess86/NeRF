@@ -172,6 +172,7 @@ def meta_initialization(
 
 
 def step(
+    epoch: int,
     nerf: NeRF,
     raymarcher: BVR,
     optim: Optimizer,
@@ -186,6 +187,7 @@ def step(
     """Training/Validation/Testing step
 
     Arguments:
+        epoch (int): current epoch
         nerf (NeRF): neural radiance field model to be trained
         raymarcher (BVR): bounded volume raymarching renderer
         optim (Optimizer): optimization strategy
@@ -206,7 +208,9 @@ def step(
     
     total_loss = 0.
     total_psnr = 0.
-    batches = tqdm(loader, desc=f"[NeRF] {split.capitalize()}", disable=not verbose)
+
+    desc = f"[NeRF] {split.capitalize()} {epoch}"
+    batches = tqdm(loader, desc=desc, disable=not verbose)
     for C, ro, rd in batches:
         C, ro, rd = C.to(d), ro.to(d), rd.to(d)
 
@@ -286,18 +290,18 @@ def fit(
     H = History()
     pbar = tqdm(range(epochs), desc="[NeRF] Epoch", disable=not verbose)
     for epoch in pbar:
-        H.train.append(step(*args, train, d, **train_opt))
+        H.train.append(step(epoch, *args, train, d, **train_opt))
         pbar.set_postfix(mse=H.train[-1][0], psnr=H.train[-1][1])
         
         if val:
-            H.val.append(step(*args, val, d, **val_opt))
+            H.val.append(step(epoch, *args, val, d, **val_opt))
             pbar.set_postfix(mse=H.val[-1][0], psnr=H.val[-1][1])
         
         for callback in callbacks:
             callback(epoch, H)
     
     if test:
-        H.test = step(*args, test, d, **test_opt)
+        H.test = step(epoch, *args, test, d, **test_opt)
         pbar.set_postfix(mse=H.test[0], psnr=H.test[1])
 
     return H

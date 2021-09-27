@@ -49,7 +49,7 @@ data/
 
 You first need to activate [Jupyter Notebook Widgets](https://ipywidgets.readthedocs.io/en/latest/user_install.html).
 Then, start the [nerf.ipynb](nerf.ipynb) notebook `jupyter notebook nerf.ipynb`.
-Run all the Cells and you will be granted with GUIs allowing you to config, train and perform inference on `Blender Scenes Dataset`.
+Run all the Cells and you will be granted with GUIs allowing you to configure, train and perform inference on `Blender Scenes Dataset`.
 
 *Manual*
 
@@ -181,13 +181,13 @@ A total of `N_c + N_f` is finally used to generate the last render, this time qu
 - [x] Meta-Learning as in [Tanick et al.](https://arxiv.org/abs/2012.02189) (see [Nichol et al.](https://arxiv.org/abs/1803.02999))
 - [x] Softplus for Sigma as in (see [Barron et al.](https://arxiv.org/abs/2103.13415))
 - [ ] Fine Network
-- [ ] Inference Optimization
+- [ ] Inference Optimization (see Networtk Distillation with  Teacher-Student)
 
 *Results (WIP)*
 |Ground Truth|Prediction|Inference Animation|
 |:----------:|:--------:|:-----------------:|
 |![hotdog_gt](imgs/hotdog/gt.png)|![hotdog_pred](imgs/hotdog/pred.png)|![hotdog_gif](imgs/hotdog/pred.gif)|
-|![drums_gt](imgs/drums/gt.png)|![drums_pred](imgs/drums/pred.png)||
+|![drums_gt](imgs/drums/gt.png)|![drums_pred](imgs/drums/pred.png)|![drums_gif](imgs/drums/pred.gif)|
 
 
 <span id="citation"></span>
