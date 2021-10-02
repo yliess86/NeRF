@@ -56,8 +56,8 @@ class FourierFeatures(Module):
         self.features = features
         self.sigma = sigma
 
-        self.b = sample_b(Size((self.features, self.i_dim)), self.sigma)
-        self.b = Parameter(self.b, requires_grad=False)
+        self.size = Size((self.features, self.i_dim))
+        self.register_buffer("b", sample_b(self.size, self.sigma))
 
     def forward(self, v: Tensor) -> Tensor:
         """Map v to fourier features representation phi(v)

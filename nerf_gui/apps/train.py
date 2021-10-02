@@ -106,9 +106,10 @@ class Trainer(StandardTabsWidget):
             del self.raymarcher
 
         tn, tf = self.config.t()
-        samples = self.config.samples()
+        samples_c = self.config.samples_c()
+        samples_f = self.config.samples_f()
 
-        self.raymarcher = BVR(tn, tf, samples=samples)
+        self.raymarcher = BVR(tn, tf, samples_c=samples_c, samples_f=samples_f)
         
         print("[Setup] Raymarcher Ready")
 

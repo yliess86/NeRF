@@ -36,7 +36,8 @@ class TrainConfig(Config):
         self.register_widget("depth", IntSlider(min=1, max=8, step=1, value=2, description="Depth"))
         
         self.register_widget("t", FloatRangeSlider(min=0., max=100., step=1., value=[2., 6.], description="Near-Far", readout_format=".1f"))
-        self.register_widget("samples", IntSlider(min=32, max=2048, step=2, value=64, description="Samples"))
+        self.register_widget("samples_c", IntSlider(min=32, max=512, step=2, value=64, description="Coarse Samples"))
+        self.register_widget("samples_f", IntSlider(min=32, max=512, step=2, value=64, description="Fine Samples"))
         self.register_widget("perturb", Checkbox(value=True, description="Perturb"))
         
         self.register_widget("epochs", IntSlider(min=10, max=500_000, step=10, value=100, description="Epochs"))
@@ -57,7 +58,7 @@ class TrainConfig(Config):
     def setup_tabs(self) -> None:
         self.register_tab("dataset", 2, 2, ["scene", None, "step", "scale"])
         self.register_tab("model", 2, 2, ["features", "sigma", "width", "depth"])
-        self.register_tab("raymarcher", 2, 2, ["t", None, "samples", "perturb"])
+        self.register_tab("raymarcher", 2, 2, ["t", "perturb", "samples_c", "samples_f"])
         self.register_tab("hyperparams", 3, 2, ["epochs", "log", "lr", "fp16", "batch_size", "jobs"])
         self.register_tab("meta learning", 1, 2, ["meta", "meta_steps"])
     

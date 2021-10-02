@@ -47,6 +47,26 @@ def phinhole_ray_projection(
 
 
 @jit.script
+def segment_lengths(t: Tensor, rd: Tensor) -> Tensor:
+    """Compute rays segment length
+
+    Arguments:
+        t (Tensor): z-values from near to far (B, N)
+        rd (Tensor): rays direction (B, 3)
+
+    Returns:
+        delta (Tensor): rays segment length (B, N)
+    """
+    B, INF = t.size(0), 1e10
+
+    delta = t[:, 1:] - t[:, :-1]
+    delti = INF * torch.ones((B, 1), device=rd.device)
+    delta = torch.cat((delta, delti), dim=-1)
+    delta = delta * torch.norm(rd[:, None, :], dim=-1)
+    return delta
+
+
+@jit.script
 def uniform_bounded_z_values(
     tn: float,
     tf: float,
@@ -70,27 +90,7 @@ def uniform_bounded_z_values(
     """
     t = torch.linspace(tn, tf, samples, device=d)
     if perturb: t += torch.rand_like(t) * (tf - tn) / samples
-    return t.expand(batch_size, samples)
-
-
-@jit.script
-def segment_lengths(t: Tensor, rd: Tensor) -> Tensor:
-    """Compute rays segment length
-
-    Arguments:
-        t (Tensor): z-values from near to far (B, N)
-        rd (Tensor): rays direction (B, 3)
-
-    Returns:
-        delta (Tensor): rays segment length (B, N)
-    """
-    B, INF = t.size(0), 1e10
-
-    delta = t[:, 1:] - t[:, :-1]
-    delti = INF * torch.ones((B, 1), device=rd.device)
-    delta = torch.cat((delta, delti), dim=-1)
-    delta = delta * torch.norm(rd[:, None, :], dim=-1)
-    return delta
+    return t.expand(batch_size, samples).contiguous()
 
 
 @jit.script
@@ -124,6 +124,101 @@ def uniform_bounded_rays(
     delta = segment_lengths(t, rd)
 
     rx = ro[:, None, :] + rd[:, None, :] * t[:, :, None]
-    rd = torch.repeat_interleave(rd, repeats=N, dim=0)
+    rd = torch.repeat_interleave(rd, repeats=N, dim=0).view(B, N, 3)
+
+    return rx, rd, t, delta
+
+
+@jit.script
+def pdf_z_values(
+    bins: Tensor,
+    weights: Tensor,
+    samples: int,
+    d: device,
+    perturb: bool,
+) -> Tensor:
+    """Generate z-values from pdf
+
+    Arguments:
+        bins (Tensor): z-value bins (B, N - 2)
+        weights (Tensor): bin weights gathered from first pass (B, N - 1)
+        samples (int): number of samples N
+        d (device): torch device
+        perturb (bool): peturb ray query segment
+
+    Returns:
+        t (Tensor): z-values sampled from pdf (B, N)
+    """
+    EPS = 1e-10
+    B, N = weights.size()
+
+    weights = weights + EPS
+    pdf = weights / torch.sum(weights, dim=-1, keepdim=True)
+    cdf = torch.cumsum(pdf, dim=-1)
+    cdf = torch.cat((torch.zeros_like(cdf[:, :1]), cdf), dim=-1)
+
+    if perturb:
+        u = torch.linspace(0, 1, samples, device=d)
+        u = u.expand(B, samples)
+        u = u.contiguous()
+    else:
+        u = torch.randn((B, samples), device=d)
+        u = u.contiguous()
+
+    idxs = torch.searchsorted(cdf, u, right=True)
+    idxs_below = torch.clamp_min(idxs - 1, 0)
+    idxs_above = torch.clamp_max(idxs, N)
+    idxs = torch.stack((idxs_below, idxs_above), dim=-1).view(B, 2 * samples)
+
+    cdf = torch.gather(cdf, dim=1, index=idxs).view(B, samples, 2)
+    bins = torch.gather(bins, dim=1, index=idxs).view(B, samples, 2)
+    
+    den = cdf[:, :, 1] - cdf[:, :, 0]
+    den[den < EPS] = 1.
+
+    t = bins[:, :, 0]
+    t = t + (u - cdf[:, :, 0]) / den * (bins[:, :, 1] - bins[:, :, 0])
+    
+    return t
+
+
+@jit.script
+def pdf_rays(
+    ro: Tensor,
+    rd: Tensor,
+    t: Tensor,
+    weights: Tensor,
+    samples: int,
+    perturb: bool,
+) -> Tuple[Tensor, Tensor, Tensor, Tensor]:
+    """Sample pdf along rays given computed weights
+
+    Arguments:
+        ro (Tensor): rays origin (B, 3)
+        rd (Tensor): rays direction (B, 3)
+        t (Tensor): coarse z-value (B, N)
+        weights (Tensor): weights gathered from first pass (B, N)
+        samples (int): number of samples along the ray
+        perturb (bool): peturb ray query segment
+
+    Returns:
+        rx (Tensor): rays position queries (B, Nc + Nf, 3)
+        rd (Tensor): rays direction (B, Nc + Nf, 3)
+        t (Tensor): z-values from near to far (B, Nc + Nf)
+        delta (Tensor): rays segment lengths (B, Nc + Nf)
+    """
+    B, Nc = weights.size()
+    Nf = samples
+    N = Nc + Nf
+
+    b = .5 * (t[:, :-1] - t[:, 1:])
+    w = weights[:, 1:-1]
+
+    z = pdf_z_values(b, w, Nf, ro.device, perturb)
+    t, _ = torch.sort(torch.cat((t, z), dim=-1), dim=-1)
+    delta = segment_lengths(t, rd)
+
+    rx = ro[:, None, :] + rd[:, None, :] * t[:, :, None]
+    rd = torch.repeat_interleave(rd, repeats=N, dim=0).view(B, N, 3)
 
     return rx, rd, t, delta

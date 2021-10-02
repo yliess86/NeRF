@@ -76,6 +76,13 @@ class NeRF(Module):
         sigma = self.sigma(x).unsqueeze(-1)
         rgb = self.rgb(torch.cat((phi_d, self.feature(x)), dim=-1))
 
-        
         return sigma, rgb
+
+    def requires_grad(self, required: bool = True) -> None:
+        """Hot Fix for Potential Issue (TODO: Report on Forum)
         
+        Arguments:
+            required (bool): requires grad or not (default: True)
+        """
+        for p in self.parameters():
+            p.requires_grad_(required)

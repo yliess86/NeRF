@@ -116,7 +116,7 @@ def step(
         C, ro, rd = C.to(d), ro.to(d), rd.to(d)
 
         with autocast(enabled=scaler.is_enabled()):
-            C_ = raymarcher.render_volume(nerf, ro, rd, perturb=perturb)
+            C_ = raymarcher.render_volume(nerf, ro, rd, perturb=perturb, train=train)
             loss = criterion(C_, C)
             psnr = -10. * torch.log10(loss)
         

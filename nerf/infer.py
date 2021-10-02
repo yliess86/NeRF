@@ -6,6 +6,7 @@ from nerf.utils.pbar import tqdm
 from torch import Tensor
 
 
+@torch.inference_mode()
 def infer(
     nerf: NeRF,
     raymarcher: BVR,
@@ -31,24 +32,21 @@ def infer(
     Returns:
         pred (Tensor): rendered frame [0, 255] (W, H, 3)
     """
-    nerf = nerf.eval()
-
     d = next(nerf.parameters()).device
     n = len(ro)
+    
+    pred = []
+    batches = range(0, n, batch_size)
 
-    with torch.inference_mode():
-        pred = []
-        batches = range(0, n, batch_size)
+    pbar = tqdm(batches, desc="[NeRF] Rendering", disable=(not verbose))
+    for s in pbar:
+        e = min(s + batch_size, n)
+        rays = ro[s:e].to(d), rd[s:e].to(d)
+        C = raymarcher.render_volume(nerf, *rays, train=False)
+        pred.append(C.cpu())
 
-        pbar = tqdm(batches, desc="[NeRF] Rendering", disable=(not verbose))
-        for s in pbar:
-            e = min(s + batch_size, n)
-            rays = ro[s:e].to(d), rd[s:e].to(d)
-            C = raymarcher.render_volume(nerf, *rays)
-            pred.append(C.cpu())
-
-        pred = torch.cat(pred, dim=0).view(W, H, 3)
-        pred = pred.clip(0, 1) * 255
+    pred = torch.cat(pred, dim=0).view(W, H, 3)
+    pred = pred.clip(0, 1) * 255
 
     return pred
 
