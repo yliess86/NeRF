@@ -62,10 +62,12 @@ from nerf.core import BoundedVolumeRaymarcher as BVR, NeRF
 from nerf.data import BlenderDataset
 
 
+DEVICE = "cuda:0"
+
 # ==== Setup
-dataset = BlenderDataset("./data/blender", "hotdog", "train")
-nerf = NeRF(256, 256, 26., 26., 256, 4).to(device)
-raymarcher = BVR(2., 6., 128)
+dataset = BlenderDataset("./data/blender", scene="hotdog", split="train")
+nerf = NeRF(256, 256, 26., 26., width=256, depth=4).to(DEVICE)
+raymarcher = BVR(tn=2., tf=6., samples_c=64, samples_f=64)
 
 # ==== Train
 history = nerf.fit(
@@ -180,7 +182,7 @@ A total of `N_c + N_f` is finally used to generate the last render, this time qu
 - [x] Interactive Notebook
 - [x] Meta-Learning as in [Tanick et al.](https://arxiv.org/abs/2012.02189) (see [Nichol et al.](https://arxiv.org/abs/1803.02999))
 - [x] Softplus for Sigma as in (see [Barron et al.](https://arxiv.org/abs/2103.13415))
-- [ ] Fine Network
+- [x] Fine Network (Differ from Original: No second Network)
 - [ ] Inference Optimization (see Networtk Distillation with  Teacher-Student)
 
 *Results (WIP)*
