@@ -1,6 +1,9 @@
+import gc
+import matplotlib.pyplot as plt
 import nerf.infer
 import nerf.train
 import numpy as np
+import os
 import torch
 import torch.jit as jit
 
@@ -8,9 +11,9 @@ from IPython.display import display
 from ipywidgets.widgets import Button, Image, Layout, VBox
 from nerf.data import BlenderDataset
 from nerf.core import NeRF, BoundedVolumeRaymarcher as BVR
+from nerf.notebook.core.standard import StandardTabsWidget
+from nerf.notebook.config.train import TrainConfig
 from nerf.train import History
-from nerf_gui.core.standard import StandardTabsWidget
-from nerf_gui.config.train import TrainConfig
 from PIL import Image as PImage
 from torch.cuda.amp import GradScaler
 from torch.nn import MSELoss
@@ -64,7 +67,7 @@ class Trainer(StandardTabsWidget):
 
     def setup_dataset(self, change) -> None:
         if hasattr(self, "dataset"):
-            del self.dataset
+            self.dataset = None
 
         blender = self.config.blender
         scene = self.config.scene()
@@ -90,7 +93,7 @@ class Trainer(StandardTabsWidget):
 
     def setup_model(self, change) -> None:
         if hasattr(self, "nerf"):
-            del self.nerf
+            self.nerf = None
 
         features = (self.config.features(), ) * 2
         sigma = (self.config.sigma(), ) * 2
@@ -103,7 +106,7 @@ class Trainer(StandardTabsWidget):
         
     def setup_raymarcher(self, change) -> None:
         if hasattr(self, "raymarcher"):
-            del self.raymarcher
+            self.raymarcher = None
 
         tn, tf = self.config.t()
         samples_c = self.config.samples_c()
@@ -115,13 +118,14 @@ class Trainer(StandardTabsWidget):
 
     def setup_optimsuite(self, change) -> None:
         if hasattr(self, "criterion"):
-            del self.criterion
+            self.criterion = None
 
-        lr = self.config.lr()
         fp16 = self.config.fp16()
+        lr = self.config.lr()
+        eps = 1e-4 if fp16 else 1e-8
 
         self.criterion = MSELoss().cuda()
-        self.optim = Adam(self.nerf.parameters(), lr=lr)
+        self.optim = Adam(self.nerf.parameters(), lr=lr, eps=eps)
         self.scaler = GradScaler(enabled=fp16)
 
         print("[Setup] Optimizer Ready")
@@ -163,10 +167,29 @@ class Trainer(StandardTabsWidget):
             if not self.verbose:
                 mse, psnr = history.train[-1]
                 print(f"[NeRF] EPOCH:{epoch + 1} - MSE: {mse:.2e} - PSNR: {psnr:.2f}")
+
+    def plot_history(self, history: History) -> None:
+        title = f"NeRF {self.config.scene().capitalize()} MSE"
+        path = os.path.join(self.config.res, f"NeRF_{self.config.scene()}_mse.png")
+        plt.figure()
+        plt.title(title)
+        plt.plot([mse for mse, _ in history.train], label="train")
+        plt.draw()
+        plt.savefig(path)
+        plt.show()
+
+        title = f"NeRF {self.config.scene().capitalize()} PSNR"
+        path = os.path.join(self.config.res, f"NeRF_{self.config.scene()}_psnr.png")
+        plt.figure()
+        plt.title(title)
+        plt.plot([psnr for _, psnr in history.train], label="train")
+        plt.draw()
+        plt.savefig(path)
+        plt.show()
     
     def fit(self, change) -> None:
         if hasattr(self, "history"):
-            del self.history
+            self.history = None
 
         self.config.disable()
         self.disable()
@@ -197,6 +220,23 @@ class Trainer(StandardTabsWidget):
             verbose=self.verbose,
         )
         print("[Train] Fitting Done")
+
+        self.plot_history(self.history)
+
+    def clean(self) -> None:
+        self.dataset = None
+        self.nerf = None
+        self.raymarcher = None
+        self.criterion = None
+        self.optim = None
+        self.scaler = None
+        self.history = None
+
+        torch.cuda.empty_cache()
+        gc.collect()
+
+        self.config.enable()
+        self.enable()
 
     def display(self) -> None:
         display(VBox([self.config.app, self.app]))

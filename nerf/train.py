@@ -177,6 +177,7 @@ def fit(
     datasets = train_data, val_data, test_data
     train, val, test = loaders(*datasets, batch_size, jobs)
 
+    H = History()
     d = next(nerf.parameters()).device
     args = nerf, raymarcher, optim, criterion, scaler
 
@@ -187,8 +188,10 @@ def fit(
 
     if meta:
         meta_initialization(*args, train, d, **meta_opt)
+        
+        for callback in callbacks:
+            callback(0, H)
 
-    H = History()
     pbar = tqdm(range(epochs), desc="[NeRF] Epoch", disable=not verbose)
     for epoch in pbar:
         H.train.append(step(epoch, *args, train, d, **train_opt))

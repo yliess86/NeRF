@@ -117,7 +117,7 @@ def render_volume_fine(
 
     rx, rds, t, delta = ubrays(ro, rd, tn, tf, Nc, perturb)
 
-    nerf.requires_grad(False)
+    if train: nerf.requires_grad(False)
 
     rx = rx.view(B * Nc, 3)
     rds = rds.view(B * Nc, 3)
@@ -132,7 +132,7 @@ def render_volume_fine(
     rx = rx.view(B * N, 3)
     rds = rds.view(B * N, 3)
 
-    nerf.requires_grad(train)
+    if train: nerf.requires_grad(train)
 
     sigma, rgb = nerf(rx, rds)
     sigma = sigma.view(B, N)

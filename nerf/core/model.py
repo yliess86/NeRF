@@ -1,4 +1,5 @@
 import torch
+import torch.jit as jit
 
 from nerf.core.features import FourierFeatures
 from torch import Tensor

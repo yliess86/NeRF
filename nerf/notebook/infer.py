@@ -1,3 +1,4 @@
+import gc
 import nerf.infer
 import numpy as np
 import torch
@@ -8,9 +9,9 @@ from ipywidgets.widgets import Button, FloatSlider, FloatRangeSlider, Image, Lay
 from moviepy.editor import ImageSequenceClip
 from nerf.data import BlenderDataset
 from nerf.core import NeRF, BoundedVolumeRaymarcher as BVR
+from nerf.notebook.config.infer import InferConfig
+from nerf.notebook.core.standard import StandardTabsWidget
 from nerf.utils.pbar import tqdm
-from nerf_gui.config.infer import InferConfig
-from nerf_gui.core.standard import StandardTabsWidget
 from PIL import Image as PImage
 
 
@@ -58,7 +59,7 @@ class Inferer(StandardTabsWidget):
 
     def setup_dataset(self, change) -> None:
         if hasattr(self, "dataset"):
-            del self.dataset
+            self.dataset = None
 
         blender = self.config.blender
         scene = self.config.scene()
@@ -71,7 +72,7 @@ class Inferer(StandardTabsWidget):
 
     def setup_model(self, change) -> None:
         if hasattr(self, "nerf"):
-            del self.nerf
+            self.nerf = None
 
         path = self.config.model_ts
         self.nerf = jit.load(path).cuda()
@@ -81,7 +82,7 @@ class Inferer(StandardTabsWidget):
 
     def setup_raymarcher(self, change) -> None:
         if hasattr(self, "raymarcher"):
-            del self.raymarcher
+            self.raymarcher = None
 
         tn, tf = self.config.t()
         samples_c = self.config.samples_c()
@@ -131,6 +132,17 @@ class Inferer(StandardTabsWidget):
 
         with open(path, "rb") as f:
             self.w_gif_pred.value = f.read()
+
+    def clean(self) -> None:
+        self.dataset = None
+        self.nerf = None
+        self.raymarcher = None
+
+        torch.cuda.empty_cache()
+        gc.collect()
+
+        self.config.enable()
+        self.enable()
 
     def display(self) -> None:
         display(VBox([self.config.app, self.app]))

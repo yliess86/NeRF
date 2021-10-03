@@ -1,6 +1,6 @@
 import yaml
 
-from nerf_gui.core.standard import StandardTabsWidget
+from nerf.notebook.core.standard import StandardTabsWidget
 from uuid import uuid1
 
 

@@ -2,8 +2,8 @@ import os
 
 from ipywidgets.widgets import Checkbox, FloatRangeSlider, FloatSlider, IntSlider
 from multiprocessing import cpu_count
-from nerf_gui.config.config import Config
-from nerf_gui.config.train import TrainConfig
+from nerf.notebook.config.config import Config
+from nerf.notebook.config.train import TrainConfig
 
 
 class InferConfig(Config):

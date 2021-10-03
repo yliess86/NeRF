@@ -2,7 +2,7 @@ import os
 
 from ipywidgets.widgets import Checkbox, Dropdown, FloatRangeSlider, FloatSlider, IntSlider
 from multiprocessing import cpu_count
-from nerf_gui.config.config import Config
+from nerf.notebook.config.config import Config
 from typing import List
 
 
