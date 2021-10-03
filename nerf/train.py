@@ -112,23 +112,25 @@ def step(
 
     desc = f"[NeRF] {split.capitalize()} {epoch}"
     batches = tqdm(loader, desc=desc, disable=not verbose)
-    for C, ro, rd in batches:
-        C, ro, rd = C.to(d), ro.to(d), rd.to(d)
 
-        with autocast(enabled=scaler.is_enabled()):
-            C_ = raymarcher.render_volume(nerf, ro, rd, perturb=perturb, train=train)
-            loss = criterion(C_, C)
-            psnr = -10. * torch.log10(loss)
-        
-        if train:
-            scaler.scale(loss).backward()
-            scaler.step(optim)
-            scaler.update()
-            optim.zero_grad(set_to_none=True)
+    with torch.set_grad_enabled(train):
+        for C, ro, rd in batches:
+            C, ro, rd = C.to(d), ro.to(d), rd.to(d)
 
-        total_loss += loss.item() / len(loader)
-        total_psnr += psnr.item() / len(loader)
-        batches.set_postfix(loss=total_loss, psnr=total_psnr)
+            with autocast(enabled=scaler.is_enabled()):
+                C_ = raymarcher.render_volume(nerf, ro, rd, perturb=perturb, train=train)
+                loss = criterion(C_, C)
+                psnr = -10. * torch.log10(loss)
+            
+            if train:
+                scaler.scale(loss).backward()
+                scaler.step(optim)
+                scaler.update()
+                optim.zero_grad(set_to_none=True)
+
+            total_loss += loss.item() / len(loader)
+            total_psnr += psnr.item() / len(loader)
+            batches.set_postfix(loss=total_loss, psnr=total_psnr)
 
     return total_loss, total_psnr
 
@@ -207,6 +209,9 @@ def fit(
     if test:
         H.test = step(epoch, *args, test, d, **test_opt)
         pbar.set_postfix(mse=H.test[0], psnr=H.test[1])
+
+        for callback in callbacks:
+            callback(epoch, H)
 
     return H
 

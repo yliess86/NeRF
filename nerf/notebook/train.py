@@ -36,14 +36,16 @@ class Trainer(StandardTabsWidget):
         self.config = config
         self.verbose = verbose
 
-        self.dataset: BlenderDataset = None
+        self.trainset: BlenderDataset = None
+        self.valset: BlenderDataset = None
+        self.testset: BlenderDataset = None
         self.nerf: NeRF = None
         self.raymarcher: BVR = None
         self.criterion: MSELoss = None
         self.optim: Adam = None
         self.scaler: GradScaler = None
         self.history: History = None
-        self.callbacks = [self.save_callback, self.render_callback]
+        self.callbacks = [self.save_callback, self.render_callback, self.plot_callback]
 
     def setup_widgets(self) -> None:
         self.register_widget("btn_dataset", Button(description="Dataset", icon="database", layout=Layout(width="80%", height="100%")))
@@ -52,8 +54,10 @@ class Trainer(StandardTabsWidget):
         self.register_widget("btn_optimsuite", Button(description="Optimizer", icon="spinner", layout=Layout(width="80%", height="100%")))
         self.register_widget("btn_fit", Button(description="Fit", icon="space-shuttle", layout=Layout(width="80%", height="100%")))
 
-        self.register_widget("img_gt", Image(value=b"", format="png", width=256, height=256, layout=Layout(width="80%")))
-        self.register_widget("img_pred", Image(value=b"", format="png", width=256, height=256, layout=Layout(width="80%")))
+        self.register_widget("img_gt", Image(value=b"", format="png", layout=Layout(width="80%")))
+        self.register_widget("img_pred", Image(value=b"", format="png", layout=Layout(width="80%")))
+        self.register_widget("img_mse", Image(value=b"", format="png", layout=Layout(width="80%")))
+        self.register_widget("img_psnr", Image(value=b"", format="png", layout=Layout(width="80%")))
 
         self.w_btn_dataset.on_click(self.setup_dataset)
         self.w_btn_model.on_click(self.setup_model)
@@ -63,11 +67,12 @@ class Trainer(StandardTabsWidget):
 
     def setup_tabs(self) -> None:
         self.register_tab("actions", 1, 5, ["btn_dataset", "btn_model", "btn_raymarcher", "btn_optimsuite", "btn_fit"])
-        self.register_tab("viz", 1, 2, ["img_gt", "img_pred"])
+        self.register_tab("viz", 2, 2, ["img_gt", "img_pred", "img_mse", "img_psnr"])
 
     def setup_dataset(self, change) -> None:
-        if hasattr(self, "dataset"):
-            self.dataset = None
+        if hasattr(self, "trainset"): self.trainset = None
+        if hasattr(self, "valset"): self.valset = None
+        if hasattr(self, "testset"): self.testset = None
 
         blender = self.config.blender
         scene = self.config.scene()
@@ -75,11 +80,13 @@ class Trainer(StandardTabsWidget):
         scale = self.config.scale()
         path = self.config.gt_png
 
-        args = blender, scene, "train"
-        self.dataset = BlenderDataset(*args, step=step, scale=scale)
+        args = blender, scene
+        self.trainset = BlenderDataset(*args, "train", step=step, scale=scale)
+        self.valset = BlenderDataset(*args, "val", step=step, scale=scale)
+        self.testset = BlenderDataset(*args, "test", step=step, scale=scale)
 
-        W, H = self.dataset.W, self.dataset.H,
-        C = self.dataset.C[:H * W]
+        W, H = self.valset.W, self.valset.H,
+        C = self.valset.C[:H * W]
 
         img = C.view(W, H, 3) * 255
         img = img.numpy().astype(np.uint8)
@@ -147,9 +154,9 @@ class Trainer(StandardTabsWidget):
 
     def render_callback(self, epoch: int, history: History) -> None:
         if self.do_callback(epoch):
-            W, H = self.dataset.W, self.dataset.H
-            ro = self.dataset.ro[:W * H]
-            rd = self.dataset.rd[:W * H]
+            W, H = self.valset.W, self.valset.H
+            ro = self.valset.ro[:W * H]
+            rd = self.valset.rd[:W * H]
 
             batch_size = self.config.batch_size()
             path = self.config.pred_png
@@ -168,24 +175,38 @@ class Trainer(StandardTabsWidget):
                 mse, psnr = history.train[-1]
                 print(f"[NeRF] EPOCH:{epoch + 1} - MSE: {mse:.2e} - PSNR: {psnr:.2f}")
 
-    def plot_history(self, history: History) -> None:
+    def plot_callback(self, epoch: int, history: History) -> None:
         title = f"NeRF {self.config.scene().capitalize()} MSE"
         path = os.path.join(self.config.res, f"NeRF_{self.config.scene()}_mse.png")
+        
         plt.figure()
         plt.title(title)
-        plt.plot([mse for mse, _ in history.train], label="train")
-        plt.draw()
+        plt.ylabel("MSE")
+        plt.xlabel("epochs")
+        if len(history.train): plt.plot([mse for mse, _ in history.train], label="train")
+        if len(history.val): plt.plot([mse for mse, _ in history.val], label="val")
+        if history.test: plt.plot([history.test[0]] * len(history.train), label="test")
+        plt.legend()
         plt.savefig(path)
-        plt.show()
+
+        with open(path, "rb") as f:
+            self.w_img_mse.value = f.read()
 
         title = f"NeRF {self.config.scene().capitalize()} PSNR"
         path = os.path.join(self.config.res, f"NeRF_{self.config.scene()}_psnr.png")
+        
         plt.figure()
         plt.title(title)
-        plt.plot([psnr for _, psnr in history.train], label="train")
-        plt.draw()
+        plt.ylabel("PSNR")
+        plt.xlabel("epochs")
+        if len(history.train): plt.plot([psnr for _, psnr in history.train], label="train")
+        if len(history.val): plt.plot([psnr for _, psnr in history.val], label="val")
+        if history.test: plt.plot([history.test[1]] * len(history.train), label="test")
+        plt.legend()
         plt.savefig(path)
-        plt.show()
+
+        with open(path, "rb") as f:
+            self.w_img_psnr.value = f.read()
     
     def fit(self, change) -> None:
         if hasattr(self, "history"):
@@ -209,7 +230,9 @@ class Trainer(StandardTabsWidget):
             self.optim,
             self.criterion,
             self.scaler,
-            self.dataset,
+            self.trainset,
+            self.valset,
+            self.testset,
             epochs=epochs,
             batch_size=batch_size,
             jobs=jobs,
@@ -221,10 +244,10 @@ class Trainer(StandardTabsWidget):
         )
         print("[Train] Fitting Done")
 
-        self.plot_history(self.history)
-
     def clean(self) -> None:
-        self.dataset = None
+        self.trainset = None
+        self.valset = None
+        self.testset = None
         self.nerf = None
         self.raymarcher = None
         self.criterion = None

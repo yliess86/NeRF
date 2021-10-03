@@ -37,7 +37,7 @@ class TrainConfig(Config):
         
         self.register_widget("t", FloatRangeSlider(min=0., max=100., step=1., value=[2., 6.], description="Near-Far", readout_format=".1f"))
         self.register_widget("samples_c", IntSlider(min=32, max=512, step=2, value=64, description="Coarse Samples"))
-        self.register_widget("samples_f", IntSlider(min=32, max=512, step=2, value=64, description="Fine Samples"))
+        self.register_widget("samples_f", IntSlider(min=0, max=512, step=2, value=64, description="Fine Samples"))
         self.register_widget("perturb", Checkbox(value=True, description="Perturb"))
         
         self.register_widget("epochs", IntSlider(min=10, max=500_000, step=10, value=100, description="Epochs"))

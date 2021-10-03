@@ -119,7 +119,7 @@ class Inferer(StandardTabsWidget):
             ro, rd = ros[s:s + S], rds[s:s + S]
 
             args = self.raymarcher, ro, rd, W, H
-            pred = self.nerf.infer(*args, batch_size=batch_size, verbose=self.verbose)
+            pred = self.nerf.infer(*args, batch_size=batch_size, verbose=False)
             preds[i] = pred.numpy().astype(np.uint8)
 
             PImage.fromarray(preds[i]).save(path)
