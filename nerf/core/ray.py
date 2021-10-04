@@ -212,11 +212,11 @@ def pdf_rays(
     Nf = samples
     N = Nc + Nf
 
-    b = .5 * (t[:, :-1] - t[:, 1:])
+    b = .5 * (t[:, 1:] + t[:, :-1])
     w = weights[:, 1:-1]
 
-    z = pdf_z_values(b, w, Nf, ro.device, perturb)
-    t, _ = torch.sort(torch.cat((t, z), dim=-1), dim=-1)
+    t_pdf = pdf_z_values(b, w, Nf, ro.device, perturb)
+    t, _ = torch.sort(torch.cat((t, t_pdf), dim=-1), dim=-1)
     delta = segment_lengths(t, rd)
 
     rx = ro[:, None, :] + rd[:, None, :] * t[:, :, None]

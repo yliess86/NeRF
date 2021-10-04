@@ -46,7 +46,7 @@ def raymarch_volume(
     EPS = 1e-10
     
     alpha = 1 - torch.exp(-sigma * delta)
-    w = alpha * exclusive_cumprod(1 - alpha + EPS)
+    w = alpha * exclusive_cumprod(1. - alpha + EPS)
     return w, torch.sum(w[:, :, None] * rgb, dim=-2)
 
 
@@ -132,7 +132,7 @@ def render_volume_fine(
     rx = rx.view(B * N, 3)
     rds = rds.view(B * N, 3)
 
-    if train: nerf.requires_grad(train)
+    if train: nerf.requires_grad(True)
 
     sigma, rgb = nerf(rx, rds)
     sigma = sigma.view(B, N)
