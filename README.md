@@ -48,7 +48,7 @@ data/
 *Jupyter Notebook*
 
 You first need to activate [Jupyter Notebook Widgets](https://ipywidgets.readthedocs.io/en/latest/user_install.html).
-Then, start the [nerf.ipynb](nerf.ipynb) notebook `jupyter notebook nerf.ipynb`.
+Then, start the [nerf.ipynb](nerf.ipynb) notebook `python3 -m nerf.notebook`.
 Run all the Cells and you will be granted with GUIs allowing you to configure, train and perform inference on `Blender Scenes Dataset`.
 
 *Manual*
