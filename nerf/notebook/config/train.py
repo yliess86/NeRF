@@ -28,7 +28,7 @@ class TrainConfig(Config):
     def setup_widgets(self) -> None:
         self.register_widget("scene", Dropdown(options=self.scenes, value=self.scenes[3], description="Scene"))
         self.register_widget("step", IntSlider(min=1, max=20, step=1, value=1, description="Step"))
-        self.register_widget("scale", FloatSlider(min=.1, max=1., step=.1, value=.05, description="Scale", readout_format=".2f"))
+        self.register_widget("scale", FloatSlider(min=.1, max=1., step=.05, value=1., description="Scale", readout_format=".2f"))
         
         self.register_widget("features", IntSlider(min=32, max=1024, step=2, value=256, description="Features"))
         self.register_widget("sigma", FloatSlider(min=1., max=32., step=1., value=26., description="Sigma", readout_format=".1f"))
