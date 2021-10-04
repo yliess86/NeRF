@@ -53,6 +53,7 @@ def loaders(
         batch_size=batch_size,
         shuffle=True,
         num_workers=jobs,
+        pin_memory=True,
     ) if train_data else None
 
     val = DataLoader(
@@ -60,6 +61,7 @@ def loaders(
         batch_size=batch_size,
         shuffle=False,
         num_workers=jobs,
+        pin_memory=True,
     ) if val_data else None
 
     test = DataLoader(
@@ -67,6 +69,7 @@ def loaders(
         batch_size=batch_size,
         shuffle=False,
         num_workers=jobs,
+        pin_memory=True,
     ) if test_data else None
     
     return train, val, test

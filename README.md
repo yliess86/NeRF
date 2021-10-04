@@ -183,7 +183,8 @@ A total of `N_c + N_f` is finally used to generate the last render, this time qu
 - [x] Meta-Learning as in [Tanick et al.](https://arxiv.org/abs/2012.02189) (see [Nichol et al.](https://arxiv.org/abs/1803.02999))
 - [x] Softplus for Sigma as in (see [Barron et al.](https://arxiv.org/abs/2103.13415))
 - [x] Fine Network (Differ from Original: No second Network)
-- [ ] Inference Optimization (see Networtk Distillation with  Teacher-Student)
+- [x] Training Opitmizations (see [Nvidia's PyTorch Performance Tuning Guide](https://nvlabs.github.io/eccv2020-mixed-precision-tutorial/))
+- [-] Inference Optimization (see Networtk Distillation with  Teacher-Student)
 
 *Results (WIP)*
 |Ground Truth|Prediction|Inference Animation|

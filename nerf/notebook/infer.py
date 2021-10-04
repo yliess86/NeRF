@@ -111,6 +111,9 @@ class Inferer(StandardTabsWidget):
         print("[Setup] Creating Rays")
         args = theta, phi, radius, frames
         ros, rds = self.dataset.turnaround_data(*args)
+        
+        d = next(self.nerf.parameters()).device
+        ros, rds = ros.to(d), rds.to(d)
 
         print("[Setup] Rendering Started")
         preds = np.zeros((frames, W, H, 3), dtype=np.uint8)
@@ -124,7 +127,7 @@ class Inferer(StandardTabsWidget):
 
             PImage.fromarray(preds[i]).save(path)
             with open(path, "rb") as f:
-                self.w_gif_pred.value = f.read()    
+                self.w_gif_pred.value = f.read()
 
         print("[Setup] Rendering Done ")
         clip = ImageSequenceClip(list(preds), durations=[1. / fps] * frames)

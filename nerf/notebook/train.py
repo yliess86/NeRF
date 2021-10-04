@@ -2,6 +2,7 @@ import gc
 import matplotlib.pyplot as plt
 import nerf.infer
 import nerf.train
+import matplotlib
 import numpy as np
 import os
 import torch
@@ -20,7 +21,12 @@ from torch.nn import MSELoss
 from torch.optim import Adam
 
 
+matplotlib.use('Agg')
+
 torch.backends.cudnn.benchmark = True
+torch.autograd.set_detect_anomaly(False)
+torch.autograd.profiler.profile(False)
+torch.autograd.profiler.emit_nvtx(False)
 
 
 class Trainer(StandardTabsWidget):
