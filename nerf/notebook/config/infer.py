@@ -26,7 +26,7 @@ class InferConfig(Config):
         self.register_widget("scale", FloatSlider(min=0., max=1., step=.1, value=1.0, description="Scale", readout_format=".1f"))
         self.register_widget("t", FloatRangeSlider(min=0., max=100., step=1., value=[2., 6.], description="Near-Far", readout_format=".1f"))
         self.register_widget("samples_c", IntSlider(min=32, max=512, step=2, value=64, description="Coarse Samples"))
-        self.register_widget("samples_f", IntSlider(min=32, max=512, step=2, value=64, description="Fine Samples"))
+        self.register_widget("samples_f", IntSlider(min=0, max=512, step=2, value=64, description="Fine Samples"))
         
         self.register_widget("batch_size", IntSlider(min=2, max=2 ** 16, step=2, value=2 ** 12, description="Batch Size"))
         self.register_widget("jobs", IntSlider(min=0, max=32, step=1, value=cpu_count() // 2, description="Jobs"))
