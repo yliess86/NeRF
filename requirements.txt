@@ -1,9 +1,9 @@
+ipywidgets==6.0.0
+tqdm==4.62.2
 torch==1.9.0+cu111
 dataclasses==0.6
 matplotlib==3.4.3
-ipywidgets==6.0.0
 torchvision==0.10.0+cu111
-tqdm==4.62.2
 numpy==1.21.2
 moviepy==1.0.3
 ipython==7.28.0
