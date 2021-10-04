@@ -28,9 +28,9 @@ class TrainConfig(Config):
     def setup_widgets(self) -> None:
         self.register_widget("scene", Dropdown(options=self.scenes, value=self.scenes[3], description="Scene"))
         self.register_widget("step", IntSlider(min=1, max=20, step=1, value=1, description="Step"))
-        self.register_widget("scale", FloatSlider(min=.1, max=1., step=.1, value=.1, description="Scale", readout_format=".1f"))
+        self.register_widget("scale", FloatSlider(min=.1, max=1., step=.1, value=.05, description="Scale", readout_format=".2f"))
         
-        self.register_widget("features", IntSlider(min=32, max=2048, step=2, value=256, description="Features"))
+        self.register_widget("features", IntSlider(min=32, max=1024, step=2, value=256, description="Features"))
         self.register_widget("sigma", FloatSlider(min=1., max=32., step=1., value=26., description="Sigma", readout_format=".1f"))
         self.register_widget("width", IntSlider(min=32, max=2048, step=2, value=128, description="Width"))
         self.register_widget("depth", IntSlider(min=1, max=8, step=1, value=2, description="Depth"))
@@ -40,11 +40,11 @@ class TrainConfig(Config):
         self.register_widget("samples_f", IntSlider(min=0, max=512, step=2, value=64, description="Fine Samples"))
         self.register_widget("perturb", Checkbox(value=True, description="Perturb"))
         
-        self.register_widget("epochs", IntSlider(min=10, max=500_000, step=10, value=100, description="Epochs"))
+        self.register_widget("epochs", IntSlider(min=10, max=1_000, step=10, value=100, description="Epochs"))
         self.register_widget("log", IntSlider(min=1, max=100, step=1, value=5, description="Log"))
         self.register_widget("lr", FloatSlider(min=0., max=1., step=1e-6, value=5e-3, description="Learning Rate", readout_format=".2e"))
         self.register_widget("fp16", Checkbox(value=True, description="Half Precision"))
-        self.register_widget("batch_size", IntSlider(min=2, max=2 ** 16, step=2, value=2 ** 12, description="Batch Size"))
+        self.register_widget("batch_size", IntSlider(min=2, max=2 ** 14, step=2, value=2 ** 12, description="Batch Size"))
         self.register_widget("jobs", IntSlider(min=0, max=32, step=1, value=cpu_count() // 2, description="Jobs"))
 
         self.register_widget("meta", Checkbox(value=False, description="Meta"))
