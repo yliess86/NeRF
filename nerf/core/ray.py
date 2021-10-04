@@ -156,13 +156,14 @@ def pdf_z_values(
     pdf = weights / torch.sum(weights, dim=-1, keepdim=True)
     cdf = torch.cumsum(pdf, dim=-1)
     cdf = torch.cat((torch.zeros_like(cdf[:, :1]), cdf), dim=-1)
+    cdf = cdf.contiguous()
 
     if perturb:
-        u = torch.linspace(0, 1, samples, device=d)
-        u = u.expand(B, samples)
+        u = torch.rand((B, samples), device=d)
         u = u.contiguous()
     else:
-        u = torch.randn((B, samples), device=d)
+        u = torch.linspace(0, 1, samples, device=d)
+        u = u.expand(B, samples)
         u = u.contiguous()
 
     idxs = torch.searchsorted(cdf, u, right=True)
@@ -176,8 +177,8 @@ def pdf_z_values(
     den = cdf[:, :, 1] - cdf[:, :, 0]
     den[den < EPS] = 1.
 
-    t = bins[:, :, 0]
-    t = t + (u - cdf[:, :, 0]) / den * (bins[:, :, 1] - bins[:, :, 0])
+    t = (u - cdf[:, :, 0]) / den
+    t = bins[:, :, 0] + t * (bins[:, :, 1] - bins[:, :, 0])
     
     return t
 
