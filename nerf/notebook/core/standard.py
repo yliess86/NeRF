@@ -1,6 +1,6 @@
 from IPython.display import display
 from ipywidgets import GridspecLayout
-from ipywidgets.widgets import Button, Tab, Widget
+from ipywidgets.widgets import Button, HBox, Tab, Widget, VBox
 from typing import Dict, List
 
 
@@ -53,17 +53,20 @@ class StandardTabsWidget:
             cols (int): Number of columns
             widgets_name (List[str]): Widgets name in order
         """
-        self.tabs[name] = grid = GridspecLayout(
-            rows,
-            cols,
-            justify_content="center",
-            align_items="center",
-        )
-
-        for r in range(rows):
-            for c in range(cols):
-                if wname := widgets_name[r * cols + c]:
-                    grid[r, c] = getattr(self, f"w_{wname}")
+        widget = lambda n: getattr(self, f"w_{n}")
+        
+        if rows == 1 and cols == 1:
+            self.tabs[name] = widget(widgets_name[0])
+        elif rows == 1:
+            self.tabs[name] = HBox([widget(n) for n in widgets_name])
+        elif cols == 1:
+            self.tabs[name] = VBox([widget(n) for n in widgets_name])
+        else:
+            self.tabs[name] = GridspecLayout(rows, cols)
+            for r in range(rows):
+                for c in range(cols):
+                    if n := widgets_name[r * cols + c]:
+                        self.tabs[name][r, c] = widget(n)
 
     def enable_widget(self, name: str) -> None:
         """Enable Widget given Name

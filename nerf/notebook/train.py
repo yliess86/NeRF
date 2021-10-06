@@ -1,6 +1,7 @@
 import gc
 import matplotlib.pyplot as plt
 import nerf.infer
+import nerf.reptile
 import nerf.train
 import matplotlib
 import numpy as np
@@ -17,7 +18,7 @@ from nerf.notebook.config.train import TrainConfig
 from nerf.train import History
 from PIL import Image as PImage
 from torch.cuda.amp import GradScaler
-from torch.nn import MSELoss
+from torch.nn import LeakyReLU, MSELoss, ReLU, SiLU
 from torch.optim import Adam
 
 
@@ -108,12 +109,21 @@ class Trainer(StandardTabsWidget):
         if hasattr(self, "nerf"):
             self.nerf = None
 
+        n2a = {a.__class__.__name__: a for a in [ReLU, LeakyReLU, SiLU]}
+
         features = (self.config.features(), ) * 2
         sigma = (self.config.sigma(), ) * 2
         width = self.config.width()
         depth = self.config.depth()
+        activ = n2a.get(self.config.activation(), ReLU)
 
-        self.nerf = NeRF(*features, *sigma, width=width, depth=depth).cuda()
+        self.nerf = NeRF(
+            *features,
+            *sigma,
+            width=width,
+            depth=depth,
+            activ=activ,
+        ).cuda()
 
         print("[Setup] Model Ready")
         
@@ -223,32 +233,48 @@ class Trainer(StandardTabsWidget):
         
         self.config.save(self.config.config_yml)
 
+        strategy = self.config.strategy()
         epochs = self.config.epochs()
+        steps = self.config.steps()
         batch_size = self.config.batch_size()
         jobs = self.config.jobs()
         perturb = self.config.perturb()
-        meta = self.config.meta()
-        meta_steps = self.config.meta_steps()
-
-        print("[Train] Fitting")
-        self.history = self.nerf.fit(
-            self.raymarcher,
-            self.optim,
-            self.criterion,
-            self.scaler,
-            self.trainset,
-            self.valset,
-            self.testset,
-            epochs=epochs,
-            batch_size=batch_size,
-            jobs=jobs,
-            perturb=perturb,
-            meta=meta,
-            meta_steps=meta_steps,
-            callbacks=self.callbacks,
-            verbose=self.verbose,
-        )
-        print("[Train] Fitting Done")
+        
+        print(f"[Train] {strategy} Fitting")
+        if strategy == "Reptile":
+            self.history = self.nerf.reptile_fit(
+                self.raymarcher,
+                self.optim,
+                self.criterion,
+                self.scaler,
+                self.trainset,
+                self.valset,
+                self.testset,
+                epochs=epochs,
+                steps=steps,
+                batch_size=batch_size,
+                jobs=jobs,
+                perturb=perturb,
+                callbacks=self.callbacks,
+                verbose=self.verbose,
+            )
+        else:
+            self.history = self.nerf.fit(
+                self.raymarcher,
+                self.optim,
+                self.criterion,
+                self.scaler,
+                self.trainset,
+                self.valset,
+                self.testset,
+                epochs=epochs,
+                batch_size=batch_size,
+                jobs=jobs,
+                perturb=perturb,
+                callbacks=self.callbacks,
+                verbose=self.verbose,
+            )
+        print(f"[Train] {strategy} Fitting Done")
 
     def clean(self) -> None:
         self.trainset = None
