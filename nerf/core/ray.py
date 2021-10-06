@@ -89,8 +89,9 @@ def uniform_bounded_z_values(
         t (Tensor): z-values from near to far (B, N)
     """
     t = torch.linspace(tn, tf, samples, device=d)
+    t = t.expand(batch_size, samples).contiguous()
     if perturb: t += torch.rand_like(t) * (tf - tn) / samples
-    return t.expand(batch_size, samples).contiguous()
+    return t
 
 
 @jit.script
@@ -149,7 +150,7 @@ def pdf_z_values(
     Returns:
         t (Tensor): z-values sampled from pdf (B, N)
     """
-    EPS = 1e-10
+    EPS = 1e-5
     B, N = weights.size()
 
     weights = weights + EPS

@@ -69,15 +69,16 @@ def turnaround(theta: float, phi: float, radius: float) -> Tensor:
     Returns:
         M (Tensor): turnaround matrix (4, 4)
     """
-    c2w = translation_z(radius)
-    c2w = rotation_phi(phi) @ c2w
-    c2w = rotation_theta(theta) @ c2w
+    rt = rotation_theta(theta)
+    rp = rotation_phi(phi)
+    tz = translation_z(radius)
+
     return tensor([
         [-1., 0., 0., 0.],
         [ 0., 1., 0., 0.],
         [ 0., 0., 1., 0.],
         [ 0., 0., 0., 1.],
-    ]) @ c2w
+    ]) @ rt @ rp @ tz
 
 
 @jit.script
@@ -98,8 +99,7 @@ def turnaround_poses(
     Returns:
         poses (Tensor): turnaround theta matrices (N, 4, 4)
     """
-    thetas = torch.linspace(*theta, samples + 1)[:-1]
-    phis = torch.linspace(*phi, samples + 1)[:-1]
-    return torch.stack([
-        turnaround(*tp, radius) for tp in zip(thetas, phis)
-    ], dim=0)
+    ts = torch.linspace(*theta, samples + 1)[:-1]
+    ps = torch.linspace(*phi, samples + 1)[:-1]
+    pos = [turnaround(*tp, radius) for tp in zip(ts, ps)]
+    return torch.stack(pos, dim=0)

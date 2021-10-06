@@ -123,13 +123,15 @@ def step(
             with autocast(enabled=scaler.is_enabled()):
                 C_ = raymarcher.render_volume(nerf, ro, rd, perturb=perturb, train=train)
                 loss = criterion(C_, C)
-                psnr = -10. * torch.log10(loss)
             
             if train:
                 scaler.scale(loss).backward()
                 scaler.step(optim)
                 scaler.update()
                 optim.zero_grad(set_to_none=True)
+
+            with torch.no_grad():
+                psnr = -10. * torch.log10(loss)
 
             total_loss += loss.item() / len(loader)
             total_psnr += psnr.item() / len(loader)

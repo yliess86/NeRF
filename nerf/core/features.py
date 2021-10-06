@@ -42,14 +42,14 @@ class FourierFeatures(Module):
     Arguments:
         i_dim (int): input dimension for v
         features (int): output dimension (default: 256)
-        sigma (float): std of the gaussian (default: 6.)
+        sigma (float): std of the gaussian (default: 26.)
     """
 
     def __init__(
         self,
         i_dim: int,
         features: int = 256,
-        sigma: float = 6.,
+        sigma: float = 26.,
     ) -> None:
         super().__init__()
         self.i_dim = i_dim
