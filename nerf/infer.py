@@ -42,7 +42,7 @@ def infer(
     for s in pbar:
         e = min(s + batch_size, n)
         rays = ro[s:e].to(d), rd[s:e].to(d)
-        C = raymarcher.render_volume(nerf, *rays, train=False)
+        _, C = raymarcher.render_volume(nerf, *rays, train=False)
         pred.append(C.cpu())
 
     pred = torch.cat(pred, dim=0).view(W, H, 3)

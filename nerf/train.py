@@ -1,78 +1,16 @@
 import torch
 
-from dataclasses import dataclass, field
 from nerf.core.model import NeRF
 from nerf.core.renderer import BoundedVolumeRaymarcher as BVR
-from nerf.meta import meta_initialization
+from nerf.data.utils import loaders
+from nerf.utils.history import History
 from nerf.utils.pbar import tqdm
 from torch import device
 from torch.cuda.amp import autocast, GradScaler
 from torch.nn import Module
 from torch.optim import Optimizer
 from torch.utils.data import DataLoader, Dataset
-from typing import Callable, Iterable, List, Optional, Tuple
-
-
-@dataclass
-class History:
-    """"Training history
-
-    Arguments:
-        train (List[Iterable[float]]): training history
-        val (List[Iterable[float]]): validation history
-        test (Iterable[float]): testing history
-    """
-    train: List[Iterable[float]] = field(default_factory=list)
-    val: List[Iterable[float]] = field(default_factory=list)
-    test: Iterable[float] = None
-
-
-def loaders(
-    train_data: Dataset,
-    val_data: Dataset,
-    test_data: Dataset,
-    batch_size: int,
-    jobs: int,
-) -> Tuple[DataLoader, DataLoader, DataLoader]:
-    """Create data loaders
-
-    Arguments:
-        train_data (Dataset): training set
-        val_data (Dataset): validation set
-        test_data (Dataset): testing set
-        batch_size (int): batch size
-        jobs (int): number of processes to use
-
-    Returns:
-        train (DataLoader): training batch data loader
-        val (DataLoader): validation batch data loader
-        test (DataLoader): testing batch data loader
-    """
-    train = DataLoader(
-        train_data,
-        batch_size=batch_size,
-        shuffle=True,
-        num_workers=jobs,
-        pin_memory=True,
-    ) if train_data else None
-
-    val = DataLoader(
-        val_data,
-        batch_size=batch_size,
-        shuffle=False,
-        num_workers=jobs,
-        pin_memory=True,
-    ) if val_data else None
-
-    test = DataLoader(
-        test_data,
-        batch_size=batch_size,
-        shuffle=False,
-        num_workers=jobs,
-        pin_memory=True,
-    ) if test_data else None
-    
-    return train, val, test
+from typing import Callable, List, Optional, Tuple
 
 
 def step(
@@ -121,7 +59,7 @@ def step(
             C, ro, rd = C.to(d), ro.to(d), rd.to(d)
 
             with autocast(enabled=scaler.is_enabled()):
-                C_ = raymarcher.render_volume(nerf, ro, rd, perturb=perturb, train=train)
+                _, C_ = raymarcher.render_volume(nerf, ro, rd, perturb=perturb, train=train)
                 loss = criterion(C_, C)
             
             if train:
@@ -153,8 +91,6 @@ def fit(
     batch_size: Optional[int] = 32,
     jobs: Optional[int] = 8,
     perturb: Optional[bool] = False,
-    meta: Optional[bool] = False,
-    meta_steps: Optional[int] = 16,
     callbacks: Optional[List[Callable[[int, History], None]]] = [],
     verbose: bool = True,
 ) -> History:
@@ -173,8 +109,6 @@ def fit(
         batch_size (Optional[int]): batch size (default: 32)
         jobs (Optional[int]): number of processes to use  (default: 8)
         perturb (Optional[bool]): peturb ray query segment (default: False)
-        meta (Optional[bool]): use meta learning (default: False)
-        meta_steps (Optional[int]): meta steps if meta learning (default: 16)
         callbacks (Optional[List[Callable[[int, History], None]]]): callbacks (default: [])
         verbose (Optional[bool]): print tqdm (default: True)
 
@@ -188,16 +122,9 @@ def fit(
     d = next(nerf.parameters()).device
     args = nerf, raymarcher, optim, criterion, scaler
 
-    meta_opt = { "perturb": perturb, "meta_steps": meta_steps, "verbose": verbose }
     train_opt = { "split": "train", "perturb": perturb, "verbose": verbose }
     val_opt = { "split": "val", "verbose": verbose }
     test_opt = { "split": "test", "verbose": verbose }
-
-    if meta:
-        meta_initialization(*args, train, d, **meta_opt)
-        
-        for callback in callbacks:
-            callback(0, H)
 
     pbar = tqdm(range(epochs), desc="[NeRF] Epoch", disable=not verbose)
     for epoch in pbar:

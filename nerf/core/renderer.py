@@ -40,14 +40,16 @@ def raymarch_volume(
         delta (Tensor): segments lengths (B, N)
 
     Returns:
-        w (Tensor): absorbtion weights for each ray (B, N)
-        C (Tensor): accumulated render color for each ray (B, 3)
+        weights (Tensor): absorbtion weights for each ray (B, N)
+        rgb_map (Tensor): accumulated render color for each ray (B, 3)
     """
     EPS = 1e-10
     
     alpha = 1 - torch.exp(-sigma * delta)
-    w = alpha * exclusive_cumprod(1. - alpha + EPS)
-    return w, torch.sum(w[:, :, None] * rgb, dim=-2)
+    trans = exclusive_cumprod(1. - alpha + EPS)
+    weights = alpha * trans
+    rgb_map = torch.sum(weights[:, :, None] * rgb, dim=-2)
+    return weights, rgb_map
 
 
 def render_volume_coarse(
@@ -58,7 +60,7 @@ def render_volume_coarse(
     tf: float, 
     samples: int,
     perturb: bool,
-) -> Tensor:
+) -> Tuple[Tensor, Tensor]:
     """Render implicit coarse volume given ray infos
 
     Arguments:
@@ -71,7 +73,8 @@ def render_volume_coarse(
         perturb (bool): peturb ray query segment
 
     Returns:
-        C (Tensor): accumulated render color for each ray (B, 3)
+        weights (Tensor): absorbtion weights for each ray (B, N)
+        rgb_map (Tensor): accumulated render color for each ray (B, 3)
     """
     B, Nc = ro.size(0), samples
 
@@ -81,9 +84,7 @@ def render_volume_coarse(
     sigma = sigma.view(B, Nc)
     rgb = rgb.view(B, Nc, 3)
 
-    _, C = raymarch_volume(sigma, rgb, delta)
-    
-    return C
+    return raymarch_volume(sigma, rgb, delta)
 
 
 def render_volume_fine(
@@ -96,7 +97,7 @@ def render_volume_fine(
     samples_f: int,
     perturb: bool,
     train: bool,
-) -> Tensor:
+) -> Tuple[Tensor, Tensor]:
     """Render implicit refined volume given ray infos
 
     Arguments:
@@ -111,7 +112,8 @@ def render_volume_fine(
         train (bool): train or eval mode
 
     Returns:
-        C (Tensor): accumulated render color for each ray (B, 3)
+        weights (Tensor): absorbtion weights for each ray (B, N)
+        rgb_map (Tensor): accumulated render color for each ray (B, 3)
     """
     B, Nc, Nf, N = ro.size(0), samples_c, samples_f, samples_c + samples_f
 
@@ -138,9 +140,7 @@ def render_volume_fine(
     sigma = sigma.view(B, N)
     rgb = rgb.view(B, N, 3)
 
-    _, C = raymarch_volume(sigma, rgb, delta)
-    
-    return C
+    return raymarch_volume(sigma, rgb, delta)
 
 
 class BoundedVolumeRaymarcher:
@@ -176,7 +176,7 @@ class BoundedVolumeRaymarcher:
         rd: Tensor,
         perturb: Optional[bool] = False,
         train: Optional[bool] = False,
-    ) -> Tensor:
+    ) -> Tuple[Tensor, Tensor]:
         """Render implicit volume given ray infos
 
         Arguments:
@@ -187,7 +187,8 @@ class BoundedVolumeRaymarcher:
             train (Optional[bool]): train or eval mode (default: False)
 
         Returns:
-            C (Tensor): accumulated render color for each ray (B, 3)
+            weights (Tensor): absorbtion weights for each ray (B, N)
+            rgb_map (Tensor): accumulated render color for each ray (B, 3)
         """
         Nc, Nf = self.samples_c, self.samples_f
         
