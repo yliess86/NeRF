@@ -1,9 +1,9 @@
 import torch
-import torch.jit as jit
 
-from nerf.core.features import FourierFeatures
+from nerf.core.features import FeatureMapping
+from nerf.core.activations import ShiftedSoftplus, WidenedSigmoid
 from torch import Tensor
-from torch.nn import Linear, Module, ReLU, Sequential, Sigmoid, Softplus
+from torch.nn import Linear, Module, ReLU, Sequential
 from typing import Tuple
 
 
@@ -11,10 +11,8 @@ class NeRF(Module):
     """Neural Radiance Field (NeRF) module
 
     Arguments:
-        phi_x_dim (int): input features for ray position embedding
-        phi_d_dim (int): input features for ray direction embedding
-        phi_x_sigma (float): input sigma for ray position embedding
-        phi_d_sigma (float): input sigma for ray direction embedding
+        phi_x (FeatureMapping): ray position embedder
+        phi_d (FeatureMapping): ray direction embedder
         width (int): base number of neurons for each layer (default: 256)
         depth (int): number of layers in each subnetwork (default: 4)
         activ (Module): activation function used in hidden layers (default: ReLU)
@@ -22,39 +20,33 @@ class NeRF(Module):
     
     def __init__(
         self,
-        phi_x_dim: int,
-        phi_d_dim: int,
-        phi_x_sigma: float,
-        phi_d_sigma: float,
+        phi_x: FeatureMapping,
+        phi_d: FeatureMapping,
         width: int = 256,
-        depth: int = 4,
+        depth: int = 8,
         activ: Module = ReLU,
     ) -> None:
         super().__init__()
-        self.phi_x_dim = phi_x_dim
-        self.phi_d_dim = phi_d_dim
-        self.phi_x_sigma = phi_x_sigma
-        self.phi_d_sigma = phi_d_sigma
+        self.phi_x = phi_x
+        self.phi_d = phi_d
         self.width = width
         self.depth = depth
         self.activ = activ
 
-        fc = [(self.width, self.width) for _ in range(self.depth - 1)]
-        fc_1 = [(self.phi_x_dim * 2, self.width)] + fc
-        fc_2 = [(self.phi_x_dim * 2 + self.width, self.width)] + fc
-
-        self.phi_x = FourierFeatures(3, features=self.phi_x_dim, sigma=self.phi_x_sigma)
-        self.phi_d = FourierFeatures(3, features=self.phi_d_dim, sigma=self.phi_d_sigma)
+        hd = self.depth // 2
+        fc = [(self.width, self.width) for _ in range(max(hd - 1, 0))]
+        fc_1 = [(self.phi_x.o_dim             , self.width)] + fc
+        fc_2 = [(self.phi_x.o_dim + self.width, self.width)] + fc
 
         self.fc_1 = Sequential(*(Sequential(Linear(*io), activ()) for io in fc_1))
         self.fc_2 = Sequential(*(Sequential(Linear(*io), activ()) for io in fc_2))
         
-        self.sigma = Sequential(Linear(self.width, 1), Softplus())
+        self.sigma = Sequential(Linear(self.width, 1), ShiftedSoftplus())
         
         self.feature = Linear(self.width, self.width)
         self.rgb = Sequential(
-            Linear(self.phi_d_dim  * 2 + self.width, self.width // 2), activ(),
-            Linear(self.width // 2, 3), Sigmoid(),
+            Linear(self.phi_d.o_dim + self.width, self.width // 2), activ(),
+            Linear(self.width // 2, 3), WidenedSigmoid(),
         )
 
     def forward(self, rx: Tensor, rd: Tensor) -> Tuple[Tensor, Tensor]:
