@@ -13,6 +13,7 @@ from IPython.display import display
 from ipywidgets.widgets import Button, Image, Layout, VBox
 from nerf.data import BlenderDataset
 from nerf.core import NeRF, BoundedVolumeRaymarcher as BVR
+from nerf.core.features import PositionalEncoding as PE, FourierFeatures as FF
 from nerf.notebook.core.standard import StandardTabsWidget
 from nerf.notebook.config.train import TrainConfig
 from nerf.train import History
@@ -20,6 +21,7 @@ from PIL import Image as PImage
 from torch.cuda.amp import GradScaler
 from torch.nn import LeakyReLU, MSELoss, ReLU, SiLU
 from torch.optim import Adam
+from torchsummary import summary
 
 
 matplotlib.use('Agg')
@@ -109,23 +111,37 @@ class Trainer(StandardTabsWidget):
         if hasattr(self, "nerf"):
             self.nerf = None
 
-        n2a = {a.__class__.__name__: a for a in [ReLU, LeakyReLU, SiLU]}
+        if self.config.embedder() == "FourrierFeatures":
+            features_x = self.config.features_x()
+            features_d = self.config.features_d()
+            sigma_x = self.config.sigma_x()
+            sigma_d = self.config.sigma_d()
 
-        features = (self.config.features(), ) * 2
-        sigma = (self.config.sigma(), ) * 2
+            phi_x = FF(3, features_x, sigma_x)
+            phi_d = FF(3, features_d, sigma_d)
+        else:
+            freqs_x = self.config.freqs_x()
+            freqs_d = self.config.freqs_d()
+
+            phi_x = PE(3, freqs_x)
+            phi_d = PE(3, freqs_d)
+        
+        n2a = {a.__name__: a for a in [ReLU, LeakyReLU, SiLU]}
+
         width = self.config.width()
         depth = self.config.depth()
         activ = n2a.get(self.config.activation(), ReLU)
 
         self.nerf = NeRF(
-            *features,
-            *sigma,
+            phi_x,
+            phi_d,
             width=width,
             depth=depth,
             activ=activ,
         ).cuda()
 
         print("[Setup] Model Ready")
+        summary(self.nerf, [(1, 3), (1, 3)])
         
     def setup_raymarcher(self, change) -> None:
         if hasattr(self, "raymarcher"):
@@ -198,7 +214,7 @@ class Trainer(StandardTabsWidget):
         plt.figure()
         plt.title(title)
         plt.ylabel("MSE")
-        plt.xlabel("epochs")
+        plt.xlabel("epoch")
         if len(history.train): plt.plot([mse for mse, _ in history.train], label="train")
         if len(history.val): plt.plot([mse for mse, _ in history.val], label="val")
         if history.test: plt.plot([history.test[0]] * len(history.train), label="test")
@@ -214,7 +230,7 @@ class Trainer(StandardTabsWidget):
         plt.figure()
         plt.title(title)
         plt.ylabel("PSNR")
-        plt.xlabel("epochs")
+        plt.xlabel("epoch")
         if len(history.train): plt.plot([psnr for _, psnr in history.train], label="train")
         if len(history.val): plt.plot([psnr for _, psnr in history.val], label="val")
         if history.test: plt.plot([history.test[1]] * len(history.train), label="test")
@@ -240,7 +256,7 @@ class Trainer(StandardTabsWidget):
         jobs = self.config.jobs()
         perturb = self.config.perturb()
         
-        print(f"[Train] {strategy} Fitting")
+        print(f"[Init] {strategy}")
         if strategy == "Reptile":
             self.history = self.nerf.reptile_fit(
                 self.raymarcher,
@@ -248,9 +264,7 @@ class Trainer(StandardTabsWidget):
                 self.criterion,
                 self.scaler,
                 self.trainset,
-                self.valset,
-                self.testset,
-                epochs=epochs,
+                epochs=1,
                 steps=steps,
                 batch_size=batch_size,
                 jobs=jobs,
@@ -258,23 +272,24 @@ class Trainer(StandardTabsWidget):
                 callbacks=self.callbacks,
                 verbose=self.verbose,
             )
-        else:
-            self.history = self.nerf.fit(
-                self.raymarcher,
-                self.optim,
-                self.criterion,
-                self.scaler,
-                self.trainset,
-                self.valset,
-                self.testset,
-                epochs=epochs,
-                batch_size=batch_size,
-                jobs=jobs,
-                perturb=perturb,
-                callbacks=self.callbacks,
-                verbose=self.verbose,
-            )
-        print(f"[Train] {strategy} Fitting Done")
+
+        print(f"[Train] Fitting")
+        self.history = self.nerf.fit(
+            self.raymarcher,
+            self.optim,
+            self.criterion,
+            self.scaler,
+            self.trainset,
+            self.valset,
+            self.testset,
+            epochs=epochs,
+            batch_size=batch_size,
+            jobs=jobs,
+            perturb=perturb,
+            callbacks=self.callbacks,
+            verbose=self.verbose,
+        )
+        print(f"[Train] Done")
 
     def clean(self) -> None:
         self.trainset = None
