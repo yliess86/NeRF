@@ -4,6 +4,7 @@ torch==1.9.0+cu111
 dataclasses==0.6
 matplotlib==3.4.3
 torchvision==0.10.0+cu111
+torchsummary==1.5.1
 numpy==1.21.2
 moviepy==1.0.3
 ipython==7.28.0

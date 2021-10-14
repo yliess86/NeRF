@@ -59,6 +59,7 @@ import nerf.infer         # Enables inference features (NeRF.infer)
 import nerf.train         # Enables training features (NeRF.fit)
 
 from nerf.core import BoundedVolumeRaymarcher as BVR, NeRF
+from nerf.core import PositionalEncoding as PE
 from nerf.data import BlenderDataset
 
 
@@ -66,7 +67,11 @@ DEVICE = "cuda:0"
 
 # ==== Setup
 dataset = BlenderDataset("./data/blender", scene="hotdog", split="train")
-nerf = NeRF(256, 256, 26., 26., width=256, depth=4).to(DEVICE)
+
+phi_x = PE(3, 6)
+phi_d = PE(3, 6)
+
+nerf = NeRF(phi_x, phi_d, width=256, depth=4).to(DEVICE)
 raymarcher = BVR(tn=2., tf=6., samples_c=64, samples_f=64)
 
 # ==== Train
@@ -175,16 +180,19 @@ A total of `N_c + N_f` is finally used to generate the last render, this time qu
 
 *Status (WIP)*
 - [x] Fourier Featrure Encoding
+- [x] Positional Encoding
 - [x] Neural Radiance Field Model
 - [x] Bounded Volume Raymarcher
 - [x] Noise for Continuous Representation
 - [x] Camera Paths (Turnaround, ...)
 - [x] Interactive Notebook
 - [x] Meta-Learning as in [Tanick et al.](https://arxiv.org/abs/2012.02189) (see [Nichol et al.](https://arxiv.org/abs/1803.02999))
-- [x] Softplus for Sigma as in (see [Barron et al.](https://arxiv.org/abs/2103.13415))
+- [x] Shifted Softplus for Sigma as in (see [Barron et al.](https://arxiv.org/abs/2103.13415))
+- [x] Widened Sigmoid for RGB as in (see [Barron et al.](https://arxiv.org/abs/2103.13415))
 - [x] Fine Network (Differ from Original: No second Network)
 - [x] Training Opitmizations (see [Nvidia's PyTorch Performance Tuning Guide](https://nvlabs.github.io/eccv2020-mixed-precision-tutorial/))
-- [-] Inference Optimization (see Networtk Distillation with  Teacher-Student)
+- [ ] Knowledge Distillation (see Teacher-Student Methods)
+- [ ] Quantization
 
 *Results (WIP)*
 |Ground Truth|Prediction|Inference Animation|
