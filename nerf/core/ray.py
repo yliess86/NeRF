@@ -20,10 +20,10 @@ def pinhole_ray_directions(W: int, H: int, focal: float) -> Tensor:
     Ws = torch.linspace(0, W - 1, W)
     Hs = torch.linspace(0, H - 1, H)
     i, j = torch.meshgrid(Ws, Hs)
-    rdx =  (i.t() - .5 * W) / focal
-    rdy = -(j.t() - .5 * H) / focal
-    rdz = -torch.ones_like(i.t())
-    return torch.stack((rdx, rdy, rdz), dim=-1)
+    rdx = (i.t() - .5 * W) / focal
+    rdy = (j.t() - .5 * H) / focal
+    rdz = torch.ones_like(i.t())
+    return torch.stack((rdx, -rdy, -rdz), dim=-1)
 
 
 @jit.script
@@ -40,7 +40,7 @@ def phinhole_ray_projection(
         ro (Tensor): ray origin in world coords (W, H, 3)
         rd (Tensor): ray directions in world coords (W, H, 3)
     """
-    rd = prd @ c2w[:3, :3].T
+    rd = torch.sum(prd[:, :, None, :] * c2w[:3, :3], dim=-1)
     rd = rd / torch.norm(rd, dim=-1, keepdim=True)
     ro = c2w[:3, 3].expand(rd.size())
     return ro, rd
