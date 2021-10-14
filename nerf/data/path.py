@@ -64,21 +64,21 @@ def turnaround(theta: float, phi: float, radius: float) -> Tensor:
     Arguments:
         theta (float): angle theta
         phi (float): angle phi
-        z (float): depth z
+        radius (float): distance from center of rotation
 
     Returns:
         M (Tensor): turnaround matrix (4, 4)
     """
-    rt = rotation_theta(theta)
-    rp = rotation_phi(phi)
-    tz = translation_z(radius)
+    t = rotation_theta(theta)
+    p = rotation_phi(phi)
+    z = translation_z(radius)
 
     return tensor([
         [-1., 0., 0., 0.],
         [ 0., 1., 0., 0.],
         [ 0., 0., 1., 0.],
         [ 0., 0., 0., 1.],
-    ]) @ rt @ rp @ tz
+    ]) @ t @ p @ z
 
 
 @jit.script
