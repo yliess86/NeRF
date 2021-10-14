@@ -45,7 +45,7 @@ def raymarch_volume(
     """
     EPS = 1e-10
     
-    alpha = 1 - torch.exp(-sigma * delta)
+    alpha = 1. - torch.exp(-sigma * delta)
     trans = exclusive_cumprod(1. - alpha + EPS)
     weights = alpha * trans
     rgb_map = torch.sum(weights[:, :, None] * rgb, dim=-2)
