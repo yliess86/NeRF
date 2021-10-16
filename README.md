@@ -115,6 +115,25 @@ The same models can be used to generate a depth map and a 3D mesh of the scene.
 <span id="positionalencoding"></span>
 ### Positional Encoding
 
+*Fourier Features*
+In their original work, Midenhall et al. presented the use of positional encoding to allow the network to learn high-frequency functions which clasical multilayer perceptron without positiona encoding are not able to and focus only on low-frequency reconstruction.
+
+```python
+v = xy | xyz                      # normalized to [-1; 1]
+
+rgb = lambda v: mlp(v)            # wo/ pe-encoding
+rgb = lambda v: mlp(phi(v))       # w/  pe-encoding
+
+phi = lambda v: [
+  cos(2 ** 0 * PI * v),
+  sin(2 ** 0 * PI * v),
+  cos(2 ** 1 * PI * v),
+  sin(2 ** 1 * PI * v),
+  ...
+].T
+```
+
+*Fourier Features*
 In [Fourier Features Let Networks Learn High Frequency Functions in Low Dimensional Domains](https://arxiv.org/abs/2006.10739), Tancik et al 2020, NeRF authors have shown that encoding positions using fourier feature mapping enables multilayer perceptron to learn high-frequency functions in low dimensional problem domains.
 
 ```python
@@ -124,8 +143,11 @@ rgb = lambda v: mlp(v)            # wo/ ff-encoding
 rgb = lambda v: mlp(phi(v))       # w/  ff-encoding
 
 phi = lambda v: [
-  a_i * cos(2 * PI * b_i.T * v),
-  a_i * sin(2 * PI * b_i.T * v),
+  a_0 * cos(2 * PI * b_0.T * v),
+  a_0 * sin(2 * PI * b_0.T * v),
+  a_1 * cos(2 * PI * b_1.T * v),
+  a_1 * sin(2 * PI * b_1.T * v),
+  ...
 ].T
 ```
 
