@@ -191,6 +191,8 @@ A total of `N_c + N_f` is finally used to generate the last render, this time qu
 - [x] Widened Sigmoid for RGB as in (see [Barron et al.](https://arxiv.org/abs/2103.13415))
 - [x] Fine Network (Differ from Original: No second Network)
 - [x] Training Opitmizations (see [Nvidia's PyTorch Performance Tuning Guide](https://nvlabs.github.io/eccv2020-mixed-precision-tutorial/))
+- [x] Safe Sofplus, Sigmoid (see [Blog Article by Jia Fu Low](https://jiafulow.github.io/blog/2019/07/11/softplus-and-softminus/))
+- [x] Gradient Clipping
 - [ ] Knowledge Distillation (see Teacher-Student Methods)
 - [ ] Quantization
 
