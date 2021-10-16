@@ -8,9 +8,13 @@ from nerf.utils.pbar import tqdm
 from torch import device
 from torch.cuda.amp import autocast, GradScaler
 from torch.nn import Module
+from torch.nn.utils import clip_grad_norm_
 from torch.optim import Optimizer
 from torch.utils.data import DataLoader, Dataset
 from typing import Callable, List, Optional, Tuple
+
+
+GRAD_NORM_CLIP = 1.
 
 
 def step(
@@ -64,6 +68,8 @@ def step(
             
             if train:
                 scaler.scale(loss).backward()
+                scaler.unscale_(optim)
+                clip_grad_norm_(nerf.parameters(), GRAD_NORM_CLIP)
                 scaler.step(optim)
                 scaler.update()
                 optim.zero_grad(set_to_none=True)

@@ -16,10 +16,8 @@ def widened_sigmoid(x: Tensor) -> Tensor:
         x (Tensor): activated output tensor
     """
     EPS = 1e-3
-        
-    num = 1 + 2 * EPS
-    den = 1 + torch.exp(-x)
-    return num / den - EPS
+    SCALE = 1. + 2. * EPS
+    return .5 * (1. + SCALE * torch.tanh(.5 * x))
 
 
 @jit.script
@@ -32,7 +30,9 @@ def shifted_softplus(x: Tensor) -> Tensor:
     Returns:
         x (Tensor): activated output tensor
     """
-    return torch.log(1 + torch.exp(x - 1))
+    sx = x - 1
+    abs_sx = torch.abs(sx)
+    return torch.log1p(torch.exp(-abs_sx)) + sx * (sx >= 0)
 
 
 class WidenedSigmoid(Module):

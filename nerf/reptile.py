@@ -11,9 +11,13 @@ from nerf.utils.pbar import tqdm
 from torch import device
 from torch.cuda.amp import autocast, GradScaler
 from torch.nn import Module
+from torch.nn.utils import clip_grad_norm_
 from torch.optim import Optimizer, SGD
 from torch.utils.data import DataLoader, Dataset
 from typing import Callable, List, Optional, Tuple
+
+
+GRAD_NORM_CLIP = 1.
 
 
 def build_meta(
@@ -122,6 +126,8 @@ def meta_step(
                 meta_loss = criterion(C_, C)
 
             meta_scaler.scale(meta_loss).backward()
+            meta_scaler.unscale_(meta_optim)
+            clip_grad_norm_(meta_nerf.parameters(), GRAD_NORM_CLIP)
             meta_scaler.step(meta_optim)
             meta_scaler.update()
             meta_optim.zero_grad(set_to_none=True)
