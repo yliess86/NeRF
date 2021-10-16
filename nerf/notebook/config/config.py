@@ -31,10 +31,10 @@ class Config(StandardTabsWidget):
             self (Config): Current config with laoded values
         """
         with open(path, "r") as fp:
-            yml = yaml.load(fp, Loader=yaml.SafeLoader)
+            yml = yaml.load(fp, Loader=yaml.Loader)
         
         self.uuid = yml["uuid"]
-        for name, value in yml["data"]:
+        for name, value in yml["data"].items():
             self.widgets[name].value = value
         
         return self

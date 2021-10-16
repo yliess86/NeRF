@@ -10,7 +10,7 @@ import torch
 import torch.jit as jit
 
 from IPython.display import display
-from ipywidgets.widgets import Button, Image, Layout, VBox
+from ipywidgets.widgets import Button, Image, Layout, Text, VBox
 from nerf.data import BlenderDataset
 from nerf.core import NeRF, BoundedVolumeRaymarcher as BVR
 from nerf.core.features import PositionalEncoding as PE, FourierFeatures as FF
@@ -57,6 +57,8 @@ class Trainer(StandardTabsWidget):
         self.callbacks = [self.save_callback, self.render_callback, self.plot_callback]
 
     def setup_widgets(self) -> None:
+        self.register_widget("load", Text(description="Config UUID", placeholder="UUID", value=""))
+
         self.register_widget("btn_dataset", Button(description="Dataset", icon="database", layout=Layout(width="80%", height="100%")))
         self.register_widget("btn_model", Button(description="Model", icon="tasks", layout=Layout(width="80%", height="100%")))
         self.register_widget("btn_raymarcher", Button(description="Raymarcher", icon="cloud", layout=Layout(width="80%", height="100%")))
@@ -74,6 +76,15 @@ class Trainer(StandardTabsWidget):
         self.w_btn_optimsuite.on_click(self.setup_optimsuite)
         self.w_btn_fit.on_click(self.fit)
 
+        def on_load_change(change) -> None:
+            if len(change.new) > 0:
+                root = os.path.join(self.config.root, change.new)
+                cfg = [f for f in os.listdir(root) if f.endswith(".yml")]
+                self.config.load(os.path.join(root, cfg[0]))
+                print(f"[Config] Loaded Config w/ UUID({self.config.uuid})")
+
+        self.w_load.observe(on_load_change, "value")
+
     def setup_tabs(self) -> None:
         self.register_tab("actions", 1, 5, ["btn_dataset", "btn_model", "btn_raymarcher", "btn_optimsuite", "btn_fit"])
         self.register_tab("viz", 2, 2, ["img_gt", "img_pred", "img_mse", "img_psnr"])
@@ -82,6 +93,9 @@ class Trainer(StandardTabsWidget):
         if hasattr(self, "trainset"): self.trainset = None
         if hasattr(self, "valset"): self.valset = None
         if hasattr(self, "testset"): self.testset = None
+
+        if not os.path.isdir(self.config.res):
+            os.makedirs(self.config.res, exist_ok=True)
 
         blender = self.config.blender
         scene = self.config.scene()
@@ -244,6 +258,9 @@ class Trainer(StandardTabsWidget):
         if hasattr(self, "history"):
             self.history = None
 
+        if not os.path.isdir(self.config.res):
+            os.makedirs(self.config.res, exist_ok=True)
+
         self.config.disable()
         self.disable()
         
@@ -309,4 +326,4 @@ class Trainer(StandardTabsWidget):
         self.enable()
 
     def display(self) -> None:
-        display(VBox([self.config.app, self.app]))
+        display(VBox([self.w_load, self.config.app, self.app]))

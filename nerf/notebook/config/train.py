@@ -20,10 +20,8 @@ class TrainConfig(Config):
         blender: str = "./data/blender",
     ) -> None:
         self.blender = blender
+        self.root = res
         super().__init__()
-
-        self.res = os.path.join(res, self.uuid)
-        os.makedirs(self.res, exist_ok=True)
         
     def setup_widgets(self) -> None:
         self.register_widget("scene", Dropdown(options=self.scenes, value=self.scenes[3], description="Scene"))
@@ -87,6 +85,10 @@ class TrainConfig(Config):
         self.register_tab("hyperparams", 2, 2, ["lr", "batch_size", "jobs", "log"])
         self.register_tab("method", 2, 2, ["strategy", "fp16", "epochs", "steps"])
     
+    @property
+    def res(self) -> str:
+        return os.path.join(self.root, self.uuid)
+
     @property
     def scenes(self) -> List[str]:
         return sorted([
