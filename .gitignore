@@ -140,3 +140,4 @@ cython_debug/
 # Datasets
 /data/
 /res/
+/test.lr.png
