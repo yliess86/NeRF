@@ -1,9 +1,12 @@
+import matplotlib.pyplot as plt
+import numpy as np
 import torch
 import torch.jit as jit
 
 from io import BytesIO
 from nerf.core import BoundedVolumeRaymarcher as BVR, NeRF
 from nerf.core import FourierFeatures as FF, PositionalEncoding as PE
+from nerf.core import NeRFScheduler
 from torch.cuda.amp import autocast, GradScaler
 from torch.optim import SGD
 from torch.nn import MSELoss
@@ -55,3 +58,26 @@ for name, phi_x, phi_d in zip(n_fms, x_fms, d_fms):
     nerf = nerf.eval()
     with torch.inference_mode():
         C_ = raymarcher.render_volume(nerf, ro, rd, perturb=True, train=False)
+
+
+EPOCHS = 16
+EPOCHS_SHIFT = int(.1 * EPOCHS)
+STEPS_PER_EPOCHS = 245
+LR = 5e-6, 5e-4
+SCALE = 1e-2
+
+scheduler = NeRFScheduler(optim, EPOCHS, EPOCHS_SHIFT, STEPS_PER_EPOCHS, LR, SCALE)
+
+x = np.arange(1, EPOCHS * STEPS_PER_EPOCHS + 1)
+y = np.array([scheduler.step().lr for _ in x])
+
+print(f"[Test({scheduler.__class__.__name__})] Plotting lr for {scheduler.steps} steps")
+plt.figure()
+plt.plot(x, y)
+plt.xlabel("epochs")
+plt.ylabel("lr")
+plt.xscale("log")
+plt.yscale("log")
+plt.xlim((x.min(), x.max()))
+plt.grid(linestyle="dotted")
+plt.savefig("test.lr.png")
