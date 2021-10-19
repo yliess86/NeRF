@@ -60,6 +60,7 @@ import nerf.train         # Enables training features (NeRF.fit)
 
 from nerf.core import BoundedVolumeRaymarcher as BVR, NeRF
 from nerf.core import PositionalEncoding as PE
+from nerf.core import NeRFScheduler
 from nerf.data import BlenderDataset
 
 
@@ -79,6 +80,7 @@ history = nerf.fit(
     nerf,                 # NeRF Module
     raymarcher,           # Raymarcher (BVR)
     optim,                # Optimizer (Adam, AdamW, ...)
+    scheduler,            # NeRFScheduler
     criterion,            # Criterion (MSELoss, L1Loss, ...)
     scaler,               # GradScaler (torch.cuda.amp, can be disabled)
     dataset: Dataset,     # Dataset (BlenderDataset)
@@ -215,6 +217,7 @@ A total of `N_c + N_f` is finally used to generate the last render, this time qu
 - [x] Training Opitmizations (see [Nvidia's PyTorch Performance Tuning Guide](https://nvlabs.github.io/eccv2020-mixed-precision-tutorial/))
 - [x] Safe Sofplus, Sigmoid (see [Blog Article by Jia Fu Low](https://jiafulow.github.io/blog/2019/07/11/softplus-and-softminus/))
 - [x] Gradient Clipping
+- [x] NeRF/JAX-NeRF Warmup Decay Leanring Rate Scheduler (see [Barron et al.](https://arxiv.org/abs/2103.13415))
 - [ ] Knowledge Distillation (see Teacher-Student Methods)
 - [ ] Quantization
 
