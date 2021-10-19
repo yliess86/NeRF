@@ -1,28 +1,28 @@
 import torch
 import torch.jit as jit
 
+from kornia import create_meshgrid
 from torch import device, Tensor
 from typing import Tuple
 
 
 @jit.script
-def pinhole_ray_directions(W: int, H: int, focal: float) -> Tensor:
+def pinhole_ray_directions(H: int, W: int, focal: float) -> Tensor:
     """Generate pinhole camera ray directions from origin to pixels
 
     Arguments:
-        W (int): frame width
         H (int): frame height
+        W (int): frame width
         focal (float): camera focal length
 
     Returns:
-        rd (Tensor): ray directions (W, H, 3)
+        rd (Tensor): ray directions (H, W, 3)
     """
-    Ws = torch.linspace(0, W - 1, W)
-    Hs = torch.linspace(0, H - 1, H)
-    i, j = torch.meshgrid(Ws, Hs)
-    rdx = (i.t() - .5 * W) / focal
-    rdy = (j.t() - .5 * H) / focal
-    rdz = torch.ones_like(i.t())
+    grid = create_meshgrid(H, W, normalized_coordinates=False)
+    i, j = grid.unbind(-1)
+    rdx = (i - .5 * W) / focal
+    rdy = (j - .5 * H) / focal
+    rdz = torch.ones_like(i)
     return torch.stack((rdx, -rdy, -rdz), dim=-1)
 
 
@@ -33,14 +33,14 @@ def phinhole_ray_projection(
     """Project pinhole camera rays from camera to world
 
     Arguments:
-        prd (Tensor): ray directions in camera coords (W, H, 3)
+        prd (Tensor): ray directions in camera coords (H, W, 3)
         c2w (Tensor): camera to world projection matrix (4, 4)
 
     Returns:
-        ro (Tensor): ray origin in world coords (W, H, 3)
-        rd (Tensor): ray directions in world coords (W, H, 3)
+        ro (Tensor): ray origin in world coords (H, W, 3)
+        rd (Tensor): ray directions in world coords (H, W, 3)
     """
-    rd = torch.sum(prd[:, :, None, :] * c2w[:3, :3], dim=-1)
+    rd = prd @ c2w[:3, :3].T
     rd = rd / torch.norm(rd, dim=-1, keepdim=True)
     ro = c2w[:3, 3].expand(rd.size())
     return ro, rd

@@ -118,7 +118,7 @@ def meta_step(
     total_loss, total_psnr = 0., 0.
     steps_loss, steps_psnr = [], []
 
-    batches = tqdm(loader, desc=f"[NeRF] Meta {epoch}", disable=not verbose)
+    batches = tqdm(loader, desc=f"[NeRF] Meta {epoch + 1}", disable=not verbose)
     for C, ro, rd in batches:
         C, ro, rd = C.to(d), ro.to(d), rd.to(d)
         
@@ -166,7 +166,7 @@ def meta_step(
     return steps_loss, steps_psnr
 
 
-def reptile_fit(
+def reptile(
     nerf: NeRF,
     raymarcher: BVR,
     optim: Optimizer,
@@ -183,7 +183,7 @@ def reptile_fit(
     callbacks: Optional[List[Callable[[int, History], None]]] = [],
     verbose: bool = True,
 ) -> History:
-    """Reptile Fit NeRF on a specific dataset
+    """Reptile Initialization for NeRF
 
     Arguments:
         nerf (NeRF): neural radiance field model to be trained
@@ -220,7 +220,7 @@ def reptile_fit(
     pbar = tqdm(range(epochs), desc="[NeRF] Epoch", disable=not verbose)
     for epoch in pbar:
         mse, psnr = meta_step(epoch, *args, train, d, **meta_opt)
-        H.train += list(zip(mse, psnr))
+        H.train.append((np.average(mse), np.average(psnr)))
         pbar.set_postfix(mse=np.average(mse), psnr=np.average(psnr))
 
         for callback in callbacks:
@@ -229,4 +229,4 @@ def reptile_fit(
     return H
 
 
-NeRF.reptile_fit = reptile_fit
+NeRF.reptile = reptile

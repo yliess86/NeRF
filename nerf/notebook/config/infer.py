@@ -23,16 +23,16 @@ class InferConfig(Config):
         super().__init__()
     
     def setup_widgets(self) -> None:
-        self.register_widget("scale", FloatSlider(min=0., max=1., step=.05, value=1., description="Scale", readout_format=".2f"))
+        self.register_widget("scale", FloatSlider(min=0., max=1., step=.05, value=.5, description="Scale", readout_format=".2f"))
         self.register_widget("t", FloatRangeSlider(min=0., max=100., step=1., value=[2., 6.], description="Near-Far", readout_format=".1f"))
         self.register_widget("samples_c", IntSlider(min=32, max=512, step=2, value=64, description="Coarse Samples"))
         self.register_widget("samples_f", IntSlider(min=0, max=512, step=2, value=64, description="Fine Samples"))
         
         self.register_widget("batch_size", IntSlider(min=2, max=2 ** 14, step=2, value=2 ** 12, description="Batch Size"))
-        self.register_widget("jobs", IntSlider(min=0, max=32, step=1, value=cpu_count() // 2, description="Jobs"))
+        self.register_widget("jobs", IntSlider(min=0, max=32, step=1, value=cpu_count(), description="Jobs"))
 
-        self.register_widget("frames", IntSlider(min=1, max=500, step=1, value=50, description="Frames"))
-        self.register_widget("fps", IntSlider(min=1, max=60, step=1, value=10, description="FPS"))
+        self.register_widget("frames", IntSlider(min=1, max=500, step=1, value=100, description="Frames"))
+        self.register_widget("fps", IntSlider(min=1, max=60, step=1, value=15, description="FPS"))
         
     def setup_tabs(self) -> None:
         self.register_tab("raymarcher", 2, 2, ["scale", "t", "samples_c", "samples_f"])

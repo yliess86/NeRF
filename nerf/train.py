@@ -60,7 +60,7 @@ def step(
     total_loss, total_psnr, total_lr = 0., 0., 0.
     steps_loss, steps_psnr, steps_lr = [], [], []
 
-    desc = f"[NeRF] {split.capitalize()} {epoch}"
+    desc = f"[NeRF] {split.capitalize()} {epoch + 1}"
     batches = tqdm(loader, desc=desc, disable=not verbose)
 
     with torch.set_grad_enabled(train):
@@ -149,13 +149,13 @@ def fit(
     pbar = tqdm(range(epochs), desc="[NeRF] Epoch", disable=not verbose)
     for epoch in pbar:
         mse, psnr, lr = step(epoch, *args, train, d, **train_opt)
-        H.train += list(zip(mse, psnr))
+        H.train.append((np.average(mse), np.average(psnr)))
         H.lr += lr
         pbar.set_postfix(mse=np.average(mse), psnr=np.average(psnr))
         
         if val:
             mse, psnr, _ = step(epoch, *args, val, d, **val_opt)
-            H.val += list(zip(mse, psnr))
+            H.val.append((np.average(mse), np.average(psnr)))
             pbar.set_postfix(mse=np.average(mse), psnr=np.average(psnr))
         
         for callback in callbacks:

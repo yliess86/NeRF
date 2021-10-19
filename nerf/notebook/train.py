@@ -212,7 +212,7 @@ class Trainer(StandardTabsWidget):
         steps_per_epoch += 1 * (len(self.trainset) % self.config.batch_size() > 0)
         lr_range = lr * 1e-2, lr
 
-        self.criterion = MSELoss().cuda()
+        self.criterion = MSELoss(reduction="mean").cuda()
         self.optim = Adam(self.nerf.parameters(), lr=lr, eps=eps)
         self.scheduler = NeRFScheduler(self.optim, epochs, epochs_shift, steps_per_epoch, lr_range)
         self.scaler = GradScaler(enabled=fp16)
@@ -264,63 +264,38 @@ class Trainer(StandardTabsWidget):
                 print(f"[NeRF] EPOCH:{epoch + 1} - MSE: {mse:.2e} - PSNR: {psnr:.2f}")
 
     def plot_callback(self, epoch: int, history: History) -> None:
-        title = f"NeRF {self.config.scene().capitalize()} MSE"
-        path = os.path.join(self.config.res, f"NeRF_{self.config.scene()}_mse.png")
+        def plot(name: str, idx: int, widget: Image) -> None:
+            title = f"NeRF {self.config.scene().capitalize()} {name.upper()}"
+            path = os.path.join(self.config.res, f"NeRF_{self.config.scene()}_{name}.png")
+            
+            plt.figure()
+            plt.title(title)
+            plt.ylabel(f"{name.upper()}")
+            plt.xlabel("epochs")
+            if len(history.train):
+                x = np.arange(1, len(history.train) + 1)
+                y = np.array([datum[idx] for datum in history.train])
+                plt.plot(x, y, label="train")
+                plt.xlim((x.min(), x.max()))
+            if len(history.val):
+                x = np.arange(1, len(history.val) + 1)
+                y = np.array([datum[idx] for datum in history.val])
+                plt.plot(x, y, label="val")
+                plt.xlim((x.min(), x.max()))
+            if history.test:
+                x = np.arange(1, len(history.train) + 1)
+                y = np.array([history.test[idx]] * len(history.train))
+                plt.plot(x, y, label="test")
+                plt.xlim((x.min(), x.max()))
+            plt.grid(linestyle="dotted")
+            plt.legend()
+            plt.savefig(path)
+
+            with open(path, "rb") as f:
+                widget.value = f.read()
         
-        plt.figure()
-        plt.title(title)
-        plt.ylabel("MSE")
-        plt.xlabel("steps")
-        if len(history.train):
-            x = np.arange(1, len(history.train) + 1)
-            y = np.array([mse for mse, _ in history.train])
-            plt.plot(x, y, label="train")
-            plt.xlim((x.min(), x.max()))
-        if len(history.val):
-            x = np.arange(1, len(history.val) + 1)
-            y = np.array([mse for mse, _ in history.val])
-            plt.plot(x, y, label="val")
-            plt.xlim((x.min(), x.max()))
-        if history.test:
-            x = np.arange(1, len(history.train) + 1)
-            y = np.array([history.test[0]] * len(history.train))
-            plt.plot(x, y, label="test")
-            plt.xlim((x.min(), x.max()))
-        plt.grid(linestyle="dotted")
-        plt.legend()
-        plt.savefig(path)
-
-        with open(path, "rb") as f:
-            self.w_img_mse.value = f.read()
-
-        title = f"NeRF {self.config.scene().capitalize()} PSNR"
-        path = os.path.join(self.config.res, f"NeRF_{self.config.scene()}_psnr.png")
-        
-        plt.figure()
-        plt.title(title)
-        plt.ylabel("PSNR")
-        plt.xlabel("steps")
-        if len(history.train):
-            x = np.arange(1, len(history.train) + 1)
-            y = np.array([psnr for _, psnr in history.train])
-            plt.plot(x, y, label="train")
-            plt.xlim((x.min(), x.max()))
-        if len(history.val):
-            x = np.arange(1, len(history.val) + 1)
-            y = np.array([psnr for _, psnr in history.val])
-            plt.plot(x, y, label="val")
-            plt.xlim((x.min(), x.max()))
-        if history.test:
-            x = np.arange(1, len(history.train) + 1)
-            y = np.array([history.test[1]] * len(history.train))
-            plt.plot(x, y, label="test")
-            plt.xlim((x.min(), x.max()))
-        plt.grid(linestyle="dotted")
-        plt.legend()
-        plt.savefig(path)
-
-        with open(path, "rb") as f:
-            self.w_img_psnr.value = f.read()
+        plot( "mse", 0, self.w_img_mse)
+        plot("psnr", 1, self.w_img_psnr)
 
         title = f"NeRF {self.config.scene().capitalize()} Learning Rate"
         path = os.path.join(self.config.res, f"NeRF_{self.config.scene()}_lr.png")
@@ -363,7 +338,7 @@ class Trainer(StandardTabsWidget):
         
         print(f"[Init] {strategy}")
         if strategy == "Reptile":
-            self.history = self.nerf.reptile_fit(
+            self.history = self.nerf.reptile(
                 self.raymarcher,
                 self.optim,
                 self.criterion,

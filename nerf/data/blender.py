@@ -29,20 +29,18 @@ def read_meta(base_dir: str, split: str) -> Dict[str, Any]:
     return meta
 
 
-def read_focal(W: int, meta: Dict[str, Any], scale: float) -> float:
+def read_focal(W: int, meta: Dict[str, Any]) -> float:
     """Extract camera focal length from datset metadata
 
     Arguments:
         W (int): frame width
         meta (Dict[str, Any]): dataset metadata
-        scale (float): scale for smaller images
 
     Returns:
         focal (float): camera focal length
     """
     camera_angle_x = float(meta["camera_angle_x"])
-    focal = .5 * W / np.tan(.5 * camera_angle_x)
-    return scale * focal
+    return .5 * W / np.tan(.5 * camera_angle_x)
 
 
 def read_data(
@@ -63,7 +61,7 @@ def read_data(
         scale (float): scale for smaller images
 
     Returns:
-        imgs (Tensor): view images (N, W, H, 3)
+        imgs (Tensor): view images (N, H, W, 3)
         poses (Tensor): camera to world matrices (N, 4, 4)
     """
     to_tensor = ToTensor()
@@ -96,8 +94,8 @@ def read_data(
 
 def build_rays(
     dataset: "BlenderDataset",
-    W: int,
     H: int,
+    W: int,
     focal: float,
     poses: Tensor,
 ) -> Tuple[Tensor, Tensor]:
@@ -105,16 +103,16 @@ def build_rays(
 
     Arguments:
         dataset (BlenderDataset): dataset context
-        W (int): frame width
         H (int): frame height
+        W (int): frame width
         focal (float): camera focal length
         poses (Tensor): camera to world matrices (N, 4, 4)
 
     Returns:
-        ro (Tensor): ray origins (N, W, H, 3)
-        rd (Tensor): ray directions (N, W, H, 3)
+        ro (Tensor): ray origins (N, H, W, 3)
+        rd (Tensor): ray directions (N, H, W, 3)
     """
-    prd = pinhole_ray_directions(W, H, focal)
+    prd = pinhole_ray_directions(H, W, focal)
 
     ros, rds = [], []
     for c2w in tqdm(poses, desc=f"[{str(dataset)}] Building Rays"):
@@ -161,8 +159,8 @@ class BlenderDataset(Dataset):
             self, self.base_dir, self.meta, self.step, self.scale,
         )
         
-        self.SIZE = self.W, self.H = self.imgs[0].shape[:2][::-1]
-        self.focal = read_focal(self.W, self.meta, self.scale)
+        self.SIZE = self.H, self.W = self.imgs[0].shape[:2]
+        self.focal = read_focal(self.W, self.meta)
         self.near, self.far = 2., 6.
         
         if step:
@@ -194,7 +192,7 @@ class BlenderDataset(Dataset):
             rd (Tensor): ray direction (3, )
         """
         poses = turnaround_poses(theta, phi, radius, samples)
-        ro, rd  = build_rays(self, self.W, self.H, self.focal, poses)
+        ro, rd  = build_rays(self, *self.SIZE, self.focal, poses)
         ro = ro.view(-1, 3)
         rd = rd.view(-1, 3)
         return ro, rd
