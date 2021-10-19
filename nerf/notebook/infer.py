@@ -105,8 +105,8 @@ class Inferer(StandardTabsWidget):
         phi = self.w_phi.value
         radius = self.w_radius.value
 
-        W, H = self.dataset.W, self.dataset.H
-        S = W * H
+        H, W = self.dataset.H, self.dataset.W
+        S = H, W
 
         print("[Setup] Creating Rays")
         args = theta, phi, radius, frames
@@ -116,12 +116,12 @@ class Inferer(StandardTabsWidget):
         ros, rds = ros.to(d), rds.to(d)
 
         print("[Setup] Rendering Started")
-        preds = np.zeros((frames, W, H, 3), dtype=np.uint8)
+        preds = np.zeros((frames, H, W, 3), dtype=np.uint8)
         pbar = tqdm(range(0, len(ros), S), desc="[NeRF] Frame", disable=not self.verbose)
         for i, s in enumerate(pbar):
             ro, rd = ros[s:s + S], rds[s:s + S]
 
-            args = self.raymarcher, ro, rd, W, H
+            args = self.raymarcher, ro, rd, H, W
             pred = self.nerf.infer(*args, batch_size=batch_size, verbose=False)
             preds[i] = pred.numpy().astype(np.uint8)
 

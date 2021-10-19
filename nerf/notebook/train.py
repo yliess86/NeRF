@@ -118,10 +118,10 @@ class Trainer(StandardTabsWidget):
         self.valset = BlenderDataset(*args, "val", step=step, scale=scale)
         self.testset = BlenderDataset(*args, "test", step=step, scale=scale)
 
-        W, H = self.valset.W, self.valset.H,
+        H, W = self.valset.H, self.valset.W,
         C = self.valset.C[:H * W]
 
-        img = C.view(W, H, 3) * 255
+        img = C.view(H, W, 3) * 255
         img = img.numpy().astype(np.uint8)
         img = PImage.fromarray(img)
         img.save(path)
@@ -242,14 +242,14 @@ class Trainer(StandardTabsWidget):
 
     def render_callback(self, epoch: int, history: History) -> None:
         if self.do_callback(epoch):
-            W, H = self.valset.W, self.valset.H
-            ro = self.valset.ro[:W * H]
-            rd = self.valset.rd[:W * H]
+            H, W = self.valset.H, self.valset.W
+            ro = self.valset.ro[:H * W]
+            rd = self.valset.rd[:H * W]
 
             batch_size = self.config.batch_size()
             path = self.config.pred_png
 
-            args = self.raymarcher, ro, rd, W, H
+            args = self.raymarcher, ro, rd, H, W
             pred = self.nerf.infer(*args, batch_size=batch_size, verbose=self.verbose)
             pred = pred.numpy().astype(np.uint8)
             
