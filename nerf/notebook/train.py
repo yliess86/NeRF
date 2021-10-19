@@ -206,7 +206,7 @@ class Trainer(StandardTabsWidget):
         eps = 1e-4 if fp16 else 1e-8
         
         epochs = self.config.epochs()
-        epochs_shift = int(.1 * epochs)
+        epochs_shift = .01 * epochs
         epochs_shift = epochs_shift if epochs_shift > 0 else 1
         steps_per_epoch = len(self.trainset) // self.config.batch_size()
         steps_per_epoch += 1 * (len(self.trainset) % self.config.batch_size() > 0)

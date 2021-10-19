@@ -37,9 +37,9 @@ class NeRFScheduler(Scheduler):
     
     Arguments:
         optim (Optimizer): optimizer to access learning rate
-        epochs (int): #epochs the model will be trained for
-        epochs_shift (int): #epochs to warmup
-        steps_per_epoch (int): #batch per epoch (len(loader))
+        epochs (float): #epochs the model will be trained for
+        epochs_shift (float): #epochs to warmup
+        steps_per_epoch (float): #batch per epoch (len(loader))
         lr_range (Optional[Tuple[float, float]]): min and max learning rate
             (default: (5e-6, 5e-4))
         scale (Optional[float]): scale factor for the warmup phase
@@ -48,9 +48,9 @@ class NeRFScheduler(Scheduler):
     def __init__(
         self,
         optim: Optimizer,
-        epochs: int,
-        epochs_shift: int,
-        steps_per_epoch: int,
+        epochs: float,
+        epochs_shift: float,
+        steps_per_epoch: float,
         lr_range: Optional[Tuple[float, float]] = (5e-6, 5e-4),
         scale: Optional[float] = 1e-2,
     ) -> None:
