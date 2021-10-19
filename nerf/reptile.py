@@ -1,4 +1,5 @@
 import gc
+import numpy as np
 import torch
 
 from copy import deepcopy
@@ -90,7 +91,7 @@ def meta_step(
     steps: Optional[int] = 16,
     perturb: Optional[bool] = False,
     verbose: Optional[bool] = True,
-) -> Tuple[float, float]:
+) -> Tuple[List[float], List[float]]:
     """Meta Step
 
     Arguments:
@@ -107,15 +108,16 @@ def meta_step(
         verbose (Optional[bool]): print tqdm (default: True)
 
     Returns:
-        total_loss (float): arveraged cumulated total loss
-        total_psnr (float): arveraged cumulated total psnr
+        steps_loss (List[float]): loss
+        steps_psnr (List[float]): psnr
     """
     nerf = nerf.train()
     meta_nerf, meta_optim, meta_scaler = build_meta(nerf, optim, scaler)
     meta_state = MetaStateHolder(nerf, meta_nerf, meta_optim, meta_scaler)
 
-    total_loss = 0.
-    total_psnr = 0.
+    total_loss, total_psnr = 0., 0.
+    steps_loss, steps_psnr = [], []
+
     batches = tqdm(loader, desc=f"[NeRF] Meta {epoch}", disable=not verbose)
     for C, ro, rd in batches:
         C, ro, rd = C.to(d), ro.to(d), rd.to(d)
@@ -149,6 +151,9 @@ def meta_step(
 
         total_loss += loss.item() / len(loader)
         total_psnr += psnr.item() / len(loader)
+        steps_loss.append(loss.item())
+        steps_psnr.append(psnr.item())
+
         batches.set_postfix(loss=total_loss, psnr=total_psnr)
         
     del meta_nerf
@@ -158,7 +163,7 @@ def meta_step(
     torch.cuda.empty_cache()
     gc.collect()
 
-    return total_loss, total_psnr
+    return steps_loss, steps_psnr
 
 
 def reptile_fit(
@@ -214,21 +219,9 @@ def reptile_fit(
 
     pbar = tqdm(range(epochs), desc="[NeRF] Epoch", disable=not verbose)
     for epoch in pbar:
-        H.train.append(meta_step(epoch, *args, train, d, **meta_opt))
-        pbar.set_postfix(mse=H.train[-1][0], psnr=H.train[-1][1])
-        
-        if val:
-            mse, psnr, _ = step(epoch, *step_args, val, d, **val_opt)
-            H.val.append((mse, psnr))
-            pbar.set_postfix(mse=H.val[-1][0], psnr=H.val[-1][1])
-        
-        for callback in callbacks:
-            callback(epoch, H)
-    
-    if test:
-        mse, psnr, _ = step(epoch, *step_args, test, d, **test_opt)
-        H.test = mse, psnr
-        pbar.set_postfix(mse=H.test[0], psnr=H.test[1])
+        mse, psnr = meta_step(epoch, *args, train, d, **meta_opt)
+        H.train += list(zip(mse, psnr))
+        pbar.set_postfix(mse=np.average(mse), psnr=np.average(psnr))
 
         for callback in callbacks:
             callback(epoch, H)

@@ -1,3 +1,4 @@
+import numpy as np
 import torch
 
 from nerf.core.model import NeRF
@@ -31,7 +32,7 @@ def step(
     split: str,
     perturb: Optional[bool] = False,
     verbose: Optional[bool] = True,
-) -> Tuple[float, float, float]:
+) -> Tuple[List[float], List[float], List[float]]:
     """Training/Validation/Testing step
 
     Arguments:
@@ -49,16 +50,15 @@ def step(
         verbose (Optional[bool]): print tqdm (default: True)
 
     Returns:
-        total_loss (float): arveraged cumulated total loss
-        total_psnr (float): arveraged cumulated total psnr
-        total_lr (float): arveraged cumulated total learning rate
+        steps_loss (List[float]): loss
+        steps_psnr (List[float]): psnr
+        steps_lr (List[float]): learning rate
     """
     train = split == "train"
     nerf = nerf.train(train)
     
-    total_loss = 0.
-    total_psnr = 0.
-    total_lr = 0.
+    total_loss, total_psnr, total_lr = 0., 0., 0.
+    steps_loss, steps_psnr, steps_lr = [], [], []
 
     desc = f"[NeRF] {split.capitalize()} {epoch}"
     batches = tqdm(loader, desc=desc, disable=not verbose)
@@ -81,16 +81,19 @@ def step(
                 scheduler.step()
                 
                 total_lr += scheduler.lr / len(loader)
+                steps_lr.append(scheduler.lr)
 
             with torch.no_grad():
                 psnr = -10. * torch.log10(loss)
             
             total_loss += loss.item() / len(loader)
             total_psnr += psnr.item() / len(loader)
+            steps_loss.append(loss.item())
+            steps_psnr.append(psnr.item())
 
             batches.set_postfix(loss=total_loss, psnr=total_psnr, lr=total_lr)
 
-    return total_loss, total_psnr, total_lr
+    return steps_loss, steps_psnr, steps_lr
 
 
 def fit(
@@ -146,22 +149,22 @@ def fit(
     pbar = tqdm(range(epochs), desc="[NeRF] Epoch", disable=not verbose)
     for epoch in pbar:
         mse, psnr, lr = step(epoch, *args, train, d, **train_opt)
-        H.train.append((mse, psnr))
-        H.lr.append(lr)
-        pbar.set_postfix(mse=H.train[-1][0], psnr=H.train[-1][1])
+        H.train += list(zip(mse, psnr))
+        H.lr += lr
+        pbar.set_postfix(mse=np.average(mse), psnr=np.average(psnr))
         
         if val:
             mse, psnr, _ = step(epoch, *args, val, d, **val_opt)
-            H.val.append((mse, psnr))
-            pbar.set_postfix(mse=H.val[-1][0], psnr=H.val[-1][1])
+            H.val += list(zip(mse, psnr))
+            pbar.set_postfix(mse=np.average(mse), psnr=np.average(psnr))
         
         for callback in callbacks:
             callback(epoch, H)
     
     if test:
         mse, psnr, _ = step(epoch, *args, test, d, **test_opt)
-        H.test = mse, psnr
-        pbar.set_postfix(mse=H.test[0], psnr=H.test[1])
+        H.test = np.average(mse), np.average(psnr)
+        pbar.set_postfix(mse=np.average(mse), psnr=np.average(psnr))
 
         for callback in callbacks:
             callback(epoch, H)

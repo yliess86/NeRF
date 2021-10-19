@@ -36,13 +36,13 @@ class TrainConfig(Config):
         self.register_widget("freqs_x", IntSlider(min=1, max=128, step=1, value=10, description="X Freqs"))
         self.register_widget("freqs_d", IntSlider(min=1, max=128, step=1, value=4, description="D Freqs"))
 
-        self.register_widget("width", IntSlider(min=32, max=2048, step=2, value=128, description="Width"))
-        self.register_widget("depth", IntSlider(min=1, max=8, step=1, value=4, description="Depth"))
+        self.register_widget("width", IntSlider(min=32, max=512, step=2, value=128, description="Width"))
+        self.register_widget("depth", IntSlider(min=1, max=16, step=1, value=4, description="Depth"))
         self.register_widget("activation", Dropdown(options=["LeakyReLU", "ReLU", "SiLU"], value="SiLU", description="Activation"))
         
         self.register_widget("t", FloatRangeSlider(min=0., max=100., step=1., value=[2., 6.], description="Near-Far", readout_format=".1f"))
-        self.register_widget("samples_c", IntSlider(min=8, max=512, step=2, value=32, description="Coarse Samples"))
-        self.register_widget("samples_f", IntSlider(min=0, max=512, step=2, value=16, description="Fine Samples"))
+        self.register_widget("samples_c", IntSlider(min=8, max=512, step=2, value=64, description="Coarse Samples"))
+        self.register_widget("samples_f", IntSlider(min=0, max=512, step=2, value=64, description="Fine Samples"))
         self.register_widget("perturb", Checkbox(value=True, description="Perturb"))
         
         self.register_widget("lr", FloatSlider(min=0., max=1., step=1e-6, value=5e-4, description="Learning Rate", readout_format=".2e"))
@@ -52,8 +52,8 @@ class TrainConfig(Config):
 
         self.register_widget("strategy", Dropdown(options=["Standard", "Reptile"], value="Reptile", description="Strategy"))
         self.register_widget("fp16", Checkbox(value=True, description="Half Precision"))
-        self.register_widget("epochs", IntSlider(min=10, max=1_000, step=10, value=300, description="Epochs"))
-        self.register_widget("steps", IntSlider(min=1, max=100, step=1, value=16, description="Steps"))
+        self.register_widget("epochs", IntSlider(min=10, max=100, step=1, value=16, description="Epochs"))
+        self.register_widget("steps", IntSlider(min=1, max=64, step=1, value=16, description="Steps"))
 
         def on_strategy_change(change) -> None:
             self.w_steps.disabled = change.new != "Reptile"

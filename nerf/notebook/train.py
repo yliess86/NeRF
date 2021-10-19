@@ -206,7 +206,8 @@ class Trainer(StandardTabsWidget):
         eps = 1e-4 if fp16 else 1e-8
         
         epochs = self.config.epochs()
-        epochs_shift = int(.01 * epochs)
+        epochs_shift = int(.1 * epochs)
+        epochs_shift = epochs_shift if epochs_shift > 0 else 1
         steps_per_epoch = len(self.trainset) // self.config.batch_size()
         steps_per_epoch += 1 * (len(self.trainset) % self.config.batch_size() > 0)
         lr_range = lr * 1e-2, lr
@@ -269,7 +270,7 @@ class Trainer(StandardTabsWidget):
         plt.figure()
         plt.title(title)
         plt.ylabel("MSE")
-        plt.xlabel("epoch")
+        plt.xlabel("steps")
         if len(history.train):
             x = np.arange(1, len(history.train) + 1)
             y = np.array([mse for mse, _ in history.train])
@@ -298,7 +299,7 @@ class Trainer(StandardTabsWidget):
         plt.figure()
         plt.title(title)
         plt.ylabel("PSNR")
-        plt.xlabel("epoch")
+        plt.xlabel("steps")
         if len(history.train):
             x = np.arange(1, len(history.train) + 1)
             y = np.array([psnr for _, psnr in history.train])
@@ -327,7 +328,7 @@ class Trainer(StandardTabsWidget):
         plt.figure()
         plt.title(title)
         plt.ylabel("lr")
-        plt.xlabel("epoch")
+        plt.xlabel("steps")
         if len(history.lr):
             x = np.arange(1, len(history.lr) + 1)
             y = np.array(history.lr)
