@@ -124,7 +124,7 @@ def meta_step(
         
         for _ in range(steps):
             with autocast(enabled=scaler.is_enabled()):
-                _, C_ = raymarcher.render_volume(meta_nerf, ro, rd, perturb=perturb, train=True)
+                *_, C_ = raymarcher.render_volume(meta_nerf, ro, rd, perturb=perturb, train=True)
                 meta_loss = criterion(C_, C)
 
             meta_scaler.scale(meta_loss).backward()
@@ -139,7 +139,7 @@ def meta_step(
                 p.grad = scaler.scale(p - meta_p)
 
             with autocast(enabled=scaler.is_enabled()):
-                _, C_ = raymarcher.render_volume(nerf, ro, rd, perturb=perturb, train=False)
+                *_, C_ = raymarcher.render_volume(nerf, ro, rd, perturb=perturb, train=False)
                 loss = criterion(C_, C)
             
             psnr = -10. * torch.log10(loss)

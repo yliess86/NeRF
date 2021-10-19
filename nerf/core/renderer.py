@@ -60,7 +60,7 @@ def render_volume_coarse(
     tf: float, 
     samples: int,
     perturb: bool,
-) -> Tuple[Tensor, Tensor]:
+) -> Tuple[Tensor, Tensor, Tensor]:
     """Render implicit coarse volume given ray infos
 
     Arguments:
@@ -73,18 +73,21 @@ def render_volume_coarse(
         perturb (bool): peturb ray query segment
 
     Returns:
+        t (Tensor): z-values from near to far (B, N)
         weights (Tensor): absorbtion weights for each ray (B, N)
         rgb_map (Tensor): accumulated render color for each ray (B, 3)
     """
     B, Nc = ro.size(0), samples
 
-    rx, rds, _, delta = ubrays(ro, rd, tn, tf, Nc, perturb)
+    rx, rds, t, delta = ubrays(ro, rd, tn, tf, Nc, perturb)
 
     sigma, rgb = nerf(rx, rds)
     sigma = sigma.view(B, Nc)
     rgb = rgb.view(B, Nc, 3)
 
-    return raymarch_volume(sigma, rgb, delta)
+    weights, rgb_map = raymarch_volume(sigma, rgb, delta)
+
+    return t, weights, rgb_map
 
 
 def render_volume_fine(
@@ -97,7 +100,7 @@ def render_volume_fine(
     samples_f: int,
     perturb: bool,
     train: bool,
-) -> Tuple[Tensor, Tensor]:
+) -> Tuple[Tensor, Tensor, Tensor]:
     """Render implicit refined volume given ray infos
 
     Arguments:
@@ -112,35 +115,24 @@ def render_volume_fine(
         train (bool): train or eval mode
 
     Returns:
+        t (Tensor): z-values from near to far (B, N)
         weights (Tensor): absorbtion weights for each ray (B, N)
         rgb_map (Tensor): accumulated render color for each ray (B, 3)
     """
-    B, Nc, Nf, N = ro.size(0), samples_c, samples_f, samples_c + samples_f
-
-    rx, rds, t, delta = ubrays(ro, rd, tn, tf, Nc, perturb)
+    B, Nc, Nf = ro.size(0), samples_c, samples_f
 
     if train: nerf.requires_grad(False)
-
-    rx = rx.view(B * Nc, 3)
-    rds = rds.view(B * Nc, 3)
-
-    sigma, rgb = nerf(rx, rds)
-    sigma = sigma.view(B, Nc)
-    rgb = rgb.view(B, Nc, 3)
-
-    w, _ = raymarch_volume(sigma, rgb, delta)
-
-    rx, rds, _, delta = prays(ro, rd, t, w, Nf, perturb)
-    rx = rx.view(B * N, 3)
-    rds = rds.view(B * N, 3)
+    t, weights, _ = render_volume_coarse(nerf, ro, rd, tn ,tf, Nc, perturb)
+    rx, rds, t, delta = prays(ro, rd, t, weights, Nf, perturb)
 
     if train: nerf.requires_grad(True)
-
     sigma, rgb = nerf(rx, rds)
-    sigma = sigma.view(B, N)
-    rgb = rgb.view(B, N, 3)
+    sigma = sigma.view(B, Nc + Nf)
+    rgb = rgb.view(B, Nc + Nf, 3)
 
-    return raymarch_volume(sigma, rgb, delta)
+    weights, rgb_map = raymarch_volume(sigma, rgb, delta)
+
+    return t, weights, rgb_map
 
 
 class BoundedVolumeRaymarcher:
@@ -187,11 +179,12 @@ class BoundedVolumeRaymarcher:
             train (Optional[bool]): train or eval mode (default: False)
 
         Returns:
+            t (Tensor): z-values from near to far (B, N)
             weights (Tensor): absorbtion weights for each ray (B, N)
             rgb_map (Tensor): accumulated render color for each ray (B, 3)
         """
         Nc, Nf = self.samples_c, self.samples_f
+        bounds = self.tn, self.tf
         
-        if Nf > 0:
-            return render_volume_fine(nerf, ro, rd, self.tn, self.tf, Nc, Nf, perturb, train)
-        return render_volume_coarse(nerf, ro, rd, self.tn, self.tf, Nc, perturb)
+        if Nf > 0: return render_volume_fine(nerf, ro, rd, *bounds, Nc, Nf, perturb, train)
+        return render_volume_coarse(nerf, ro, rd, *bounds, Nc, perturb)

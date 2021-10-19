@@ -68,7 +68,7 @@ def step(
             C, ro, rd = C.to(d), ro.to(d), rd.to(d)
 
             with autocast(enabled=scaler.is_enabled()):
-                _, C_ = raymarcher.render_volume(nerf, ro, rd, perturb=perturb, train=train)
+                *_, C_ = raymarcher.render_volume(nerf, ro, rd, perturb=perturb, train=train)
                 loss = criterion(C_, C)
             
             if train:

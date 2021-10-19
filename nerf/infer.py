@@ -30,25 +30,21 @@ def infer(
         verbose (bool): print tqdm
 
     Returns:
-        pred (Tensor): rendered frame [0, 255] (W, H, 3)
+        pred (Tensor): rendered frame [0, 255] (H, W, 3)
     """
     d = next(nerf.parameters()).device
-    n = len(ro)
+    n = ro.size(0)
     
-    pred = []
+    ro, rd = ro.to(d), rd.to(d)
+    pred = torch.zeros((H * W, 3), dtype=torch.float32)
+
     batches = range(0, n, batch_size)
-
-    pbar = tqdm(batches, desc="[NeRF] Rendering", disable=(not verbose))
-    for s in pbar:
+    for s in tqdm(batches, desc="[NeRF] Rendering", disable=not verbose):
         e = min(s + batch_size, n)
-        rays = ro[s:e].to(d), rd[s:e].to(d)
-        _, C = raymarcher.render_volume(nerf, *rays, train=False)
-        pred.append(C.cpu())
+        *_, C = raymarcher.render_volume(nerf, ro[s:e], rd[s:e], train=False)
+        pred[s:e] = C.cpu()
 
-    pred = torch.cat(pred, dim=0).view(W, H, 3)
-    pred = pred.clip(0, 1) * 255
-
-    return pred
+    return pred.view(H, W, 3).clip(0, 1) * 255
 
 
 NeRF.infer = infer
