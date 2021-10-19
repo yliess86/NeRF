@@ -14,3 +14,4 @@ class History:
     train: List[Iterable[float]] = field(default_factory=list)
     val: List[Iterable[float]] = field(default_factory=list)
     test: Iterable[float] = None
+    lr: List[float] = field(default_factory=list)

@@ -2,6 +2,7 @@ import torch
 
 from nerf.core.model import NeRF
 from nerf.core.renderer import BoundedVolumeRaymarcher as BVR
+from nerf.core.scheduler import Scheduler
 from nerf.data.utils import loaders
 from nerf.utils.history import History
 from nerf.utils.pbar import tqdm
@@ -14,7 +15,7 @@ from torch.utils.data import DataLoader, Dataset
 from typing import Callable, List, Optional, Tuple
 
 
-GRAD_NORM_CLIP = 1.
+GRAD_NORM_CLIP = 2.
 
 
 def step(
@@ -22,6 +23,7 @@ def step(
     nerf: NeRF,
     raymarcher: BVR,
     optim: Optimizer,
+    scheduler: Scheduler,
     criterion: Module,
     scaler: GradScaler,
     loader: DataLoader,
@@ -29,7 +31,7 @@ def step(
     split: str,
     perturb: Optional[bool] = False,
     verbose: Optional[bool] = True,
-) -> Tuple[float, float]:
+) -> Tuple[float, float, float]:
     """Training/Validation/Testing step
 
     Arguments:
@@ -37,6 +39,7 @@ def step(
         nerf (NeRF): neural radiance field model to be trained
         raymarcher (BVR): bounded volume raymarching renderer
         optim (Optimizer): optimization strategy
+        scheduler (Scheduler): learning rate scheduler
         criterion (Module): objective function
         scaler (GradScaler): grad scaler for half precision (fp16)
         loader (DataLoader): batch data loader
@@ -48,12 +51,14 @@ def step(
     Returns:
         total_loss (float): arveraged cumulated total loss
         total_psnr (float): arveraged cumulated total psnr
+        total_lr (float): arveraged cumulated total learning rate
     """
     train = split == "train"
     nerf = nerf.train(train)
     
     total_loss = 0.
     total_psnr = 0.
+    total_lr = 0.
 
     desc = f"[NeRF] {split.capitalize()} {epoch}"
     batches = tqdm(loader, desc=desc, disable=not verbose)
@@ -73,21 +78,26 @@ def step(
                 scaler.step(optim)
                 scaler.update()
                 optim.zero_grad(set_to_none=True)
+                scheduler.step()
+                
+                total_lr += scheduler.lr / len(loader)
 
             with torch.no_grad():
                 psnr = -10. * torch.log10(loss)
-
+            
             total_loss += loss.item() / len(loader)
             total_psnr += psnr.item() / len(loader)
-            batches.set_postfix(loss=total_loss, psnr=total_psnr)
 
-    return total_loss, total_psnr
+            batches.set_postfix(loss=total_loss, psnr=total_psnr, lr=total_lr)
+
+    return total_loss, total_psnr, total_lr
 
 
 def fit(
     nerf: NeRF,
     raymarcher: BVR,
     optim: Optimizer,
+    scheduler: Scheduler,
     criterion: Module,
     scaler: GradScaler,
     train_data: Dataset,
@@ -106,6 +116,7 @@ def fit(
         nerf (NeRF): neural radiance field model to be trained
         raymarcher (BVR): bounded volume raymarching renderer
         optim (Optimizer): optimization strategy
+        scheduler (Scheduler): learning rate scheduler
         criterion (Module): objective function
         scaler (GradScaler): grad scaler for half precision (fp16)
         train_data (Dataset): training dataset
@@ -126,7 +137,7 @@ def fit(
 
     H = History()
     d = next(nerf.parameters()).device
-    args = nerf, raymarcher, optim, criterion, scaler
+    args = nerf, raymarcher, optim, scheduler, criterion, scaler
 
     train_opt = { "split": "train", "perturb": perturb, "verbose": verbose }
     val_opt = { "split": "val", "verbose": verbose }
@@ -134,18 +145,22 @@ def fit(
 
     pbar = tqdm(range(epochs), desc="[NeRF] Epoch", disable=not verbose)
     for epoch in pbar:
-        H.train.append(step(epoch, *args, train, d, **train_opt))
+        mse, psnr, lr = step(epoch, *args, train, d, **train_opt)
+        H.train.append((mse, psnr))
+        H.lr.append(lr)
         pbar.set_postfix(mse=H.train[-1][0], psnr=H.train[-1][1])
         
         if val:
-            H.val.append(step(epoch, *args, val, d, **val_opt))
+            mse, psnr, _ = step(epoch, *args, val, d, **val_opt)
+            H.val.append((mse, psnr))
             pbar.set_postfix(mse=H.val[-1][0], psnr=H.val[-1][1])
         
         for callback in callbacks:
             callback(epoch, H)
     
     if test:
-        H.test = step(epoch, *args, test, d, **test_opt)
+        mse, psnr, _ = step(epoch, *args, test, d, **test_opt)
+        H.test = mse, psnr
         pbar.set_postfix(mse=H.test[0], psnr=H.test[1])
 
         for callback in callbacks:

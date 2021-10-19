@@ -14,6 +14,7 @@ from ipywidgets.widgets import Button, Image, Layout, Text, VBox
 from nerf.data import BlenderDataset
 from nerf.core import NeRF, BoundedVolumeRaymarcher as BVR
 from nerf.core.features import PositionalEncoding as PE, FourierFeatures as FF
+from nerf.core.scheduler import NeRFScheduler
 from nerf.notebook.core.standard import StandardTabsWidget
 from nerf.notebook.config.train import TrainConfig
 from nerf.train import History
@@ -52,12 +53,13 @@ class Trainer(StandardTabsWidget):
         self.raymarcher: BVR = None
         self.criterion: MSELoss = None
         self.optim: Adam = None
+        self.scheduler: NeRFScheduler = None
         self.scaler: GradScaler = None
         self.history: History = None
         self.callbacks = [self.save_callback, self.render_callback, self.plot_callback]
 
     def setup_widgets(self) -> None:
-        self.register_widget("load", Text(description="Config UUID", placeholder="UUID", value=""))
+        self.register_widget("load", Text(description="Load Config UUID", placeholder="UUID", value=""))
 
         self.register_widget("btn_dataset", Button(description="Dataset", icon="database", layout=Layout(width="80%", height="100%")))
         self.register_widget("btn_model", Button(description="Model", icon="tasks", layout=Layout(width="80%", height="100%")))
@@ -69,6 +71,7 @@ class Trainer(StandardTabsWidget):
         self.register_widget("img_pred", Image(value=b"", format="png", layout=Layout(width="80%")))
         self.register_widget("img_mse", Image(value=b"", format="png", layout=Layout(width="80%")))
         self.register_widget("img_psnr", Image(value=b"", format="png", layout=Layout(width="80%")))
+        self.register_widget("img_lr", Image(value=b"", format="png", layout=Layout(width="80%")))
 
         self.w_btn_dataset.on_click(self.setup_dataset)
         self.w_btn_model.on_click(self.setup_model)
@@ -85,9 +88,16 @@ class Trainer(StandardTabsWidget):
 
         self.w_load.observe(on_load_change, "value")
 
+        self.w_btn_dataset.disabled = False
+        self.w_btn_model.disabled = True
+        self.w_btn_raymarcher.disabled = True
+        self.w_btn_optimsuite.disabled = True
+        self.w_btn_fit.disabled = True
+
     def setup_tabs(self) -> None:
         self.register_tab("actions", 1, 5, ["btn_dataset", "btn_model", "btn_raymarcher", "btn_optimsuite", "btn_fit"])
-        self.register_tab("viz", 2, 2, ["img_gt", "img_pred", "img_mse", "img_psnr"])
+        self.register_tab("images", 1, 2, ["img_gt", "img_pred"])
+        self.register_tab("graphs", 2, 2, ["img_mse", "img_psnr", "img_lr", None])
 
     def setup_dataset(self, change) -> None:
         if hasattr(self, "trainset"): self.trainset = None
@@ -120,6 +130,12 @@ class Trainer(StandardTabsWidget):
             self.w_img_gt.value = f.read()
 
         print("[Setup] Dataset Ready")
+
+        self.w_btn_dataset.disabled = True
+        self.w_btn_model.disabled = False
+        self.w_btn_raymarcher.disabled = True
+        self.w_btn_optimsuite.disabled = True
+        self.w_btn_fit.disabled = True
 
     def setup_model(self, change) -> None:
         if hasattr(self, "nerf"):
@@ -156,6 +172,12 @@ class Trainer(StandardTabsWidget):
 
         print("[Setup] Model Ready")
         summary(self.nerf, [(1, 3), (1, 3)])
+
+        self.w_btn_dataset.disabled = True
+        self.w_btn_model.disabled = True
+        self.w_btn_raymarcher.disabled = False
+        self.w_btn_optimsuite.disabled = True
+        self.w_btn_fit.disabled = True
         
     def setup_raymarcher(self, change) -> None:
         if hasattr(self, "raymarcher"):
@@ -169,6 +191,12 @@ class Trainer(StandardTabsWidget):
         
         print("[Setup] Raymarcher Ready")
 
+        self.w_btn_dataset.disabled = True
+        self.w_btn_model.disabled = True
+        self.w_btn_raymarcher.disabled = True
+        self.w_btn_optimsuite.disabled = False
+        self.w_btn_fit.disabled = True
+
     def setup_optimsuite(self, change) -> None:
         if hasattr(self, "criterion"):
             self.criterion = None
@@ -176,12 +204,25 @@ class Trainer(StandardTabsWidget):
         fp16 = self.config.fp16()
         lr = self.config.lr()
         eps = 1e-4 if fp16 else 1e-8
+        
+        epochs = self.config.epochs()
+        epochs_shift = int(.01 * epochs)
+        steps_per_epoch = len(self.trainset) // self.config.batch_size()
+        steps_per_epoch += 1 * (len(self.trainset) % self.config.batch_size() > 0)
+        lr_range = lr * 1e-2, lr
 
         self.criterion = MSELoss().cuda()
         self.optim = Adam(self.nerf.parameters(), lr=lr, eps=eps)
+        self.scheduler = NeRFScheduler(self.optim, epochs, epochs_shift, steps_per_epoch, lr_range)
         self.scaler = GradScaler(enabled=fp16)
 
         print("[Setup] Optimizer Ready")
+
+        self.w_btn_dataset.disabled = True
+        self.w_btn_model.disabled = True
+        self.w_btn_raymarcher.disabled = True
+        self.w_btn_optimsuite.disabled = True
+        self.w_btn_fit.disabled = False
 
     def do_callback(self, epoch: int) -> bool:
         epochs = self.config.epochs()
@@ -229,9 +270,22 @@ class Trainer(StandardTabsWidget):
         plt.title(title)
         plt.ylabel("MSE")
         plt.xlabel("epoch")
-        if len(history.train): plt.plot([mse for mse, _ in history.train], label="train")
-        if len(history.val): plt.plot([mse for mse, _ in history.val], label="val")
-        if history.test: plt.plot([history.test[0]] * len(history.train), label="test")
+        if len(history.train):
+            x = np.arange(1, len(history.train) + 1)
+            y = np.array([mse for mse, _ in history.train])
+            plt.plot(x, y, label="train")
+            plt.xlim((x.min(), x.max()))
+        if len(history.val):
+            x = np.arange(1, len(history.val) + 1)
+            y = np.array([mse for mse, _ in history.val])
+            plt.plot(x, y, label="val")
+            plt.xlim((x.min(), x.max()))
+        if history.test:
+            x = np.arange(1, len(history.train) + 1)
+            y = np.array([history.test[0]] * len(history.train))
+            plt.plot(x, y, label="test")
+            plt.xlim((x.min(), x.max()))
+        plt.grid(linestyle="dotted")
         plt.legend()
         plt.savefig(path)
 
@@ -245,14 +299,47 @@ class Trainer(StandardTabsWidget):
         plt.title(title)
         plt.ylabel("PSNR")
         plt.xlabel("epoch")
-        if len(history.train): plt.plot([psnr for _, psnr in history.train], label="train")
-        if len(history.val): plt.plot([psnr for _, psnr in history.val], label="val")
-        if history.test: plt.plot([history.test[1]] * len(history.train), label="test")
+        if len(history.train):
+            x = np.arange(1, len(history.train) + 1)
+            y = np.array([psnr for _, psnr in history.train])
+            plt.plot(x, y, label="train")
+            plt.xlim((x.min(), x.max()))
+        if len(history.val):
+            x = np.arange(1, len(history.val) + 1)
+            y = np.array([psnr for _, psnr in history.val])
+            plt.plot(x, y, label="val")
+            plt.xlim((x.min(), x.max()))
+        if history.test:
+            x = np.arange(1, len(history.train) + 1)
+            y = np.array([history.test[1]] * len(history.train))
+            plt.plot(x, y, label="test")
+            plt.xlim((x.min(), x.max()))
+        plt.grid(linestyle="dotted")
         plt.legend()
         plt.savefig(path)
 
         with open(path, "rb") as f:
             self.w_img_psnr.value = f.read()
+
+        title = f"NeRF {self.config.scene().capitalize()} Learning Rate"
+        path = os.path.join(self.config.res, f"NeRF_{self.config.scene()}_lr.png")
+
+        plt.figure()
+        plt.title(title)
+        plt.ylabel("lr")
+        plt.xlabel("epoch")
+        if len(history.lr):
+            x = np.arange(1, len(history.lr) + 1)
+            y = np.array(history.lr)
+            plt.plot(x, y)
+            plt.xlim((x.min(), x.max()))
+        plt.xscale("log")
+        plt.yscale("log")
+        plt.grid(linestyle="dotted")
+        plt.savefig(path)
+
+        with open(path, "rb") as f:
+            self.w_img_lr.value = f.read()
     
     def fit(self, change) -> None:
         if hasattr(self, "history"):
@@ -294,6 +381,7 @@ class Trainer(StandardTabsWidget):
         self.history = self.nerf.fit(
             self.raymarcher,
             self.optim,
+            self.scheduler,
             self.criterion,
             self.scaler,
             self.trainset,
@@ -307,6 +395,9 @@ class Trainer(StandardTabsWidget):
             verbose=self.verbose,
         )
         print(f"[Train] Done")
+
+        self.config.enable()
+        self.enable()
 
     def clean(self) -> None:
         self.trainset = None

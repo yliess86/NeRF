@@ -17,7 +17,7 @@ from torch.utils.data import DataLoader, Dataset
 from typing import Callable, List, Optional, Tuple
 
 
-GRAD_NORM_CLIP = 1.
+GRAD_NORM_CLIP = 2.
 
 
 def build_meta(
@@ -206,6 +206,7 @@ def reptile_fit(
     H = History()
     d = next(nerf.parameters()).device
     args = nerf, raymarcher, optim, criterion, scaler
+    step_args = nerf, raymarcher, optim, None, criterion, scaler
 
     meta_opt = { "steps": steps, "perturb": perturb, "verbose": verbose }
     val_opt = { "split": "val", "verbose": verbose }
@@ -217,14 +218,16 @@ def reptile_fit(
         pbar.set_postfix(mse=H.train[-1][0], psnr=H.train[-1][1])
         
         if val:
-            H.val.append(step(epoch, *args, val, d, **val_opt))
+            mse, psnr, _ = step(epoch, *step_args, val, d, **val_opt)
+            H.val.append((mse, psnr))
             pbar.set_postfix(mse=H.val[-1][0], psnr=H.val[-1][1])
         
         for callback in callbacks:
             callback(epoch, H)
     
     if test:
-        H.test = step(epoch, *args, test, d, **test_opt)
+        mse, psnr, _ = step(epoch, *step_args, test, d, **test_opt)
+        H.test = mse, psnr
         pbar.set_postfix(mse=H.test[0], psnr=H.test[1])
 
         for callback in callbacks:
