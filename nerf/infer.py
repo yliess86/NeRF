@@ -12,8 +12,8 @@ def infer(
     raymarcher: BVR,
     ro: Tensor,
     rd: Tensor,
-    W: int,
     H: int,
+    W: int,
     batch_size: int = 32,
     verbose: bool = True,
 ) -> Tensor:
@@ -24,8 +24,8 @@ def infer(
         raymarcher (BVR): bounded volume raymarcher
         ro (Tensor): rays origin (B, 3)
         rd (Tensor): rays direction (B, 3)
-        W (int): frame width
         H (int): frame height
+        W (int): frame width
         batch_size (int): batch size
         verbose (bool): print tqdm
 
