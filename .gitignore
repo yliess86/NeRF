@@ -141,3 +141,4 @@ cython_debug/
 /data/
 /res/
 /test.lr.png
+/test.infer.png
