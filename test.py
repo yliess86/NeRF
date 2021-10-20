@@ -57,7 +57,7 @@ for name, phi_x, phi_d in zip(n_fms, x_fms, d_fms):
 
     nerf = nerf.eval()
     with torch.inference_mode():
-        C_ = raymarcher.render_volume(nerf, ro, rd, perturb=True, train=False)
+        *_, C_ = raymarcher.render_volume(nerf, ro, rd, perturb=True, train=False)
 
 
 EPOCHS = 16
