@@ -1,5 +1,6 @@
 import gc
 import matplotlib.pyplot as plt
+from nerf.core import scheduler
 import nerf.infer
 import nerf.reptile
 import nerf.train
@@ -14,7 +15,7 @@ from ipywidgets.widgets import Button, Image, Layout, Text, VBox
 from nerf.data import BlenderDataset
 from nerf.core import NeRF, BoundedVolumeRaymarcher as BVR
 from nerf.core.features import PositionalEncoding as PE, FourierFeatures as FF
-from nerf.core.scheduler import NeRFScheduler
+from nerf.core.scheduler import IndendityScheduler, NeRFScheduler, Scheduler
 from nerf.notebook.core.standard import StandardTabsWidget
 from nerf.notebook.config.train import TrainConfig
 from nerf.train import History
@@ -53,7 +54,7 @@ class Trainer(StandardTabsWidget):
         self.raymarcher: BVR = None
         self.criterion: MSELoss = None
         self.optim: Adam = None
-        self.scheduler: NeRFScheduler = None
+        self.scheduler: Scheduler = None
         self.scaler: GradScaler = None
         self.history: History = None
         self.callbacks = [self.save_callback, self.render_callback, self.plot_callback]
@@ -214,7 +215,17 @@ class Trainer(StandardTabsWidget):
 
         self.criterion = MSELoss(reduction="mean").cuda()
         self.optim = Adam(self.nerf.parameters(), lr=lr, eps=eps)
-        self.scheduler = NeRFScheduler(self.optim, epochs, epochs_shift, steps_per_epoch, lr_range)
+        
+        if self.config.scheduler() == "NeRF":
+            self.scheduler = NeRFScheduler(
+                self.optim,
+                epochs,
+                epochs_shift,
+                steps_per_epoch,
+                lr_range,
+            )
+        else: self.scheduler = IndendityScheduler(self.optim, lr)
+        
         self.scaler = GradScaler(enabled=fp16)
 
         print("[Setup] Optimizer Ready")

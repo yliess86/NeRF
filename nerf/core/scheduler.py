@@ -32,6 +32,31 @@ class Scheduler:
         raise NotImplementedError("Lr not implemented yet!")
 
 
+class IndendityScheduler(Scheduler):
+    """Identity Learning Rate Scheduler
+    
+    Arguments:
+        optim (Optimizer): optimizer to access learning rate
+        epochs (float): #epochs the model will be trained for
+        lr (Optional[float]): learning rate (default: 5e-4)
+    """
+
+    def __init__(
+        self,
+        optim: Optimizer,
+        epochs: float,
+        lr: Optional[float] = 5e-4,
+    ) -> None:
+        super().__init__(optim)
+        self._lr = lr
+        self.update_optim()
+
+    @property
+    def lr(self) -> float:
+        """Current Scheduler Learning Rate"""
+        return self._lr
+
+
 class NeRFScheduler(Scheduler):
     """NeRF Learning Rate Scheduler
     

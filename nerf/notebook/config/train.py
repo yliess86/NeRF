@@ -45,6 +45,7 @@ class TrainConfig(Config):
         self.register_widget("samples_f", IntSlider(min=0, max=512, step=2, value=64, description="Fine Samples"))
         self.register_widget("perturb", Checkbox(value=True, description="Perturb"))
         
+        self.register_widget("scheduler", Dropdown(options=["Identity", "NeRF"], value="NeRF", description="Method"))
         self.register_widget("lr", FloatSlider(min=0., max=1., step=1e-6, value=5e-4, description="Learning Rate", readout_format=".2e"))
         self.register_widget("batch_size", IntSlider(min=2, max=2 ** 14, step=2, value=2 ** 14, description="Batch Size"))
         self.register_widget("jobs", IntSlider(min=0, max=32, step=1, value=cpu_count(), description="Jobs"))
@@ -82,7 +83,7 @@ class TrainConfig(Config):
         self.register_tab("encoding", 4, 2, ["embedder", None, "features_x", "features_d", "sigma_x", "sigma_d", "freqs_x", "freqs_d"])
         self.register_tab("model", 1, 3, ["width", "depth", "activation"])
         self.register_tab("raymarcher", 2, 2, ["t", "perturb", "samples_c", "samples_f"])
-        self.register_tab("hyperparams", 2, 2, ["lr", "batch_size", "jobs", "log"])
+        self.register_tab("hyperparams", 3, 2, ["scheduler", None, "lr", "batch_size", "jobs", "log"])
         self.register_tab("method", 2, 2, ["strategy", "fp16", "epochs", "steps"])
     
     @property
