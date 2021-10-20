@@ -97,14 +97,9 @@ class PositionalEncoding(FeatureMapping):
         super().__init__(i_dim, 3 + (2 * N_freqs) * 3)
         self.N_freqs = N_freqs
 
-        self.register_buffer(
-            "freq_bands",
-            torch.linspace(
-                2 ** 0,
-                2 ** (self.N_freqs - 1),
-                self.N_freqs,
-            ),
-        )
+        a, b = 2 ** 0, 2 ** (self.N_freqs - 1)
+        freq_bands = torch.linspace(a, b, self.N_freqs)
+        self.register_buffer("freq_bands", freq_bands)
 
     def forward(self, v: Tensor) -> Tensor:
         """Map v to positional encoding representation phi(v)

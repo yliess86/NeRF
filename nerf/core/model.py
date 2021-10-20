@@ -43,7 +43,7 @@ class NeRF(Module):
         
         self.sigma = Sequential(Linear(self.width, 1), ShiftedSoftplus())
         
-        self.feature = Linear(self.width, self.width)
+        self.features = Linear(self.width, self.width)
         self.rgb = Sequential(
             Linear(self.phi_d.o_dim + self.width, self.width // 2), activ(),
             Linear(self.width // 2, 3), WidenedSigmoid(),
@@ -67,7 +67,7 @@ class NeRF(Module):
         x = self.fc_2(torch.cat((phi_x, x), dim=-1))
 
         sigma = self.sigma(x).unsqueeze(-1)
-        rgb = self.rgb(torch.cat((phi_d, self.feature(x)), dim=-1))
+        rgb = self.rgb(torch.cat((phi_d, self.features(x)), dim=-1))
 
         return sigma, rgb
 

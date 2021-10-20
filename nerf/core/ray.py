@@ -90,8 +90,13 @@ def uniform_bounded_z_values(
     """
     t = torch.linspace(tn, tf, samples, device=d)
     t = t.expand(batch_size, samples).contiguous()
-    if perturb: t += torch.rand_like(t) * (tf - tn) / samples
-    return t
+    if not perturb:
+        return t
+
+    tm = .5 * (t[:, :-1] + t[:, 1:])
+    tu = torch.cat((tm, t[:, -1:]), dim=-1)
+    tl = torch.cat((t[:, :1], tm), dim=-1)
+    return tl + (tu - tl) * torch.rand_like(t)
 
 
 @jit.script
@@ -213,10 +218,9 @@ def pdf_rays(
     Nf = samples
     N = Nc + Nf
 
-    b = .5 * (t[:, 1:] + t[:, :-1])
-    w = weights[:, 1:-1]
-
-    t_pdf = pdf_z_values(b, w, Nf, ro.device, perturb)
+    tm = .5 * (t[:, :-1] + t[:, 1:])
+    t_pdf = pdf_z_values(tm, weights[:, 1:-1], Nf, ro.device, perturb)
+    
     t, _ = torch.sort(torch.cat((t, t_pdf), dim=-1), dim=-1)
     delta = segment_lengths(t, rd)
 

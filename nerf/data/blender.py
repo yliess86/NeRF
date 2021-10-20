@@ -76,9 +76,9 @@ def read_data(
             w, h = img.width, img.height
             w = int(np.floor(scale * w))
             h = int(np.floor(scale * h))
-            img = img.resize((w, h), Image.NEAREST)
+            img = img.resize((w, h), Image.LANCZOS)
 
-        img = to_tensor(img).float().permute(1, 2, 0)
+        img = to_tensor(img).permute(1, 2, 0)
         img = img[:, :, :3] * img[:, :, -1:]
         imgs.append(img)
 
@@ -112,15 +112,17 @@ def build_rays(
         ro (Tensor): ray origins (N, H, W, 3)
         rd (Tensor): ray directions (N, H, W, 3)
     """
-    prd = pinhole_ray_directions(H, W, focal)
+    N = poses.size(0)
 
-    ros, rds = [], []
-    for c2w in tqdm(poses, desc=f"[{str(dataset)}] Building Rays"):
-        ro, rd = phinhole_ray_projection(prd, c2w)
-        ros.append(ro)
-        rds.append(rd)
+    prd = pinhole_ray_directions(H, W, focal)
+    ros = torch.zeros((N, H, W, 3), dtype=torch.float32)
+    rds = torch.zeros((N, H, W, 3), dtype=torch.float32)
+
+    c2ws = tqdm(poses, desc=f"[{str(dataset)}] Building Rays")
+    for i, c2w in enumerate(c2ws):
+        ros[i], rds[i] = phinhole_ray_projection(prd, c2w)
     
-    return torch.stack(ros, dim=0), torch.stack(rds, dim=0)
+    return ros, rds
 
 
 class BlenderDataset(Dataset):
@@ -156,7 +158,11 @@ class BlenderDataset(Dataset):
         self.meta = read_meta(self.base_dir, self.split)
         
         self.imgs, self.poses = read_data(
-            self, self.base_dir, self.meta, self.step, self.scale,
+            self,
+            self.base_dir,
+            self.meta,
+            self.step,
+            self.scale,
         )
         
         self.SIZE = self.H, self.W = self.imgs[0].shape[:2]
@@ -165,12 +171,18 @@ class BlenderDataset(Dataset):
         
         if step:
             self.ro, self.rd = build_rays(
-                self, *self.SIZE, self.focal, self.poses,
+                self,
+                *self.SIZE,
+                self.focal,
+                self.poses,
             )
 
             self.C = self.imgs.view(-1, 3)
             self.ro = self.ro.view(-1, 3)
             self.rd = self.rd.view(-1, 3)
+
+            assert self.C.size() == self.ro.size()
+            assert self.C.size() == self.rd.size()
 
     def turnaround_data(
         self,
@@ -192,9 +204,11 @@ class BlenderDataset(Dataset):
             rd (Tensor): ray direction (3, )
         """
         poses = turnaround_poses(theta, phi, radius, samples)
+        
         ro, rd  = build_rays(self, *self.SIZE, self.focal, poses)
         ro = ro.view(-1, 3)
         rd = rd.view(-1, 3)
+
         return ro, rd
 
     def __len__(self) -> int:

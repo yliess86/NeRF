@@ -106,7 +106,7 @@ class Inferer(StandardTabsWidget):
         radius = self.w_radius.value
 
         H, W = self.dataset.H, self.dataset.W
-        S = H, W
+        S = H * W
 
         print("[Setup] Creating Rays")
         args = theta, phi, radius, frames
@@ -117,7 +117,7 @@ class Inferer(StandardTabsWidget):
 
         print("[Setup] Rendering Started")
         preds = np.zeros((frames, H, W, 3), dtype=np.uint8)
-        pbar = tqdm(range(0, len(ros), S), desc="[NeRF] Frame", disable=not self.verbose)
+        pbar = tqdm(range(0, frames * S, S), desc="[NeRF] Frame", disable=not self.verbose)
         for i, s in enumerate(pbar):
             ro, rd = ros[s:s + S], rds[s:s + S]
 
