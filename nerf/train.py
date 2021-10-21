@@ -16,7 +16,7 @@ from torch.utils.data import DataLoader, Dataset
 from typing import Callable, List, Optional, Tuple
 
 
-GRAD_NORM_CLIP = 2.
+GRAD_NORM_CLIP = 0.
 
 
 def step(
@@ -74,7 +74,7 @@ def step(
             if train:
                 scaler.scale(loss).backward()
                 scaler.unscale_(optim)
-                clip_grad_norm_(nerf.parameters(), GRAD_NORM_CLIP)
+                if GRAD_NORM_CLIP > 0.: clip_grad_norm_(nerf.parameters(), GRAD_NORM_CLIP)
                 scaler.step(optim)
                 scaler.update()
                 optim.zero_grad(set_to_none=True)

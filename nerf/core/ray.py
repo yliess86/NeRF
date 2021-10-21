@@ -162,7 +162,6 @@ def pdf_z_values(
     pdf = weights / torch.sum(weights, dim=-1, keepdim=True)
     cdf = torch.cumsum(pdf, dim=-1)
     cdf = torch.cat((torch.zeros_like(cdf[:, :1]), cdf), dim=-1)
-    cdf = cdf.contiguous()
 
     if perturb:
         u = torch.rand((B, samples), device=d)

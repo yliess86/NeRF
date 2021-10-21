@@ -45,7 +45,7 @@ class TrainConfig(Config):
         self.register_widget("samples_f", IntSlider(min=0, max=512, step=2, value=64, description="Fine Samples"))
         self.register_widget("perturb", Checkbox(value=True, description="Perturb"))
         
-        self.register_widget("scheduler", Dropdown(options=["Identity", "NeRF"], value="NeRF", description="Method"))
+        self.register_widget("scheduler", Dropdown(options=["Identity", "MipNeRF"], value="MipNeRF", description="Scheduler"))
         self.register_widget("lr", FloatSlider(min=0., max=1., step=1e-6, value=5e-4, description="Learning Rate", readout_format=".2e"))
         self.register_widget("batch_size", IntSlider(min=2, max=2 ** 14, step=2, value=2 ** 14, description="Batch Size"))
         self.register_widget("jobs", IntSlider(min=0, max=32, step=1, value=cpu_count(), description="Jobs"))

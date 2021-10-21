@@ -204,19 +204,19 @@ class Trainer(StandardTabsWidget):
 
         fp16 = self.config.fp16()
         lr = self.config.lr()
-        eps = 1e-4 if fp16 else 1e-8
-        
         epochs = self.config.epochs()
-        epochs_shift = .01 * epochs
-        epochs_shift = epochs_shift if epochs_shift > 0 else 1
-        steps_per_epoch = len(self.trainset) // self.config.batch_size()
-        steps_per_epoch += 1 * (len(self.trainset) % self.config.batch_size() > 0)
-        lr_range = lr * 1e-2, lr
+        eps = 1e-4 if fp16 else 1e-8
 
         self.criterion = MSELoss(reduction="mean").cuda()
         self.optim = Adam(self.nerf.parameters(), lr=lr, eps=eps)
         
-        if self.config.scheduler() == "NeRF":
+        if self.config.scheduler() == "MipNeRF":
+            epochs_shift = .01 * epochs
+            epochs_shift = epochs_shift if epochs_shift > 0 else 1
+            steps_per_epoch = len(self.trainset) // self.config.batch_size()
+            steps_per_epoch += 1 * (len(self.trainset) % self.config.batch_size() > 0)
+            lr_range = lr * 1e-2, lr
+
             self.scheduler = NeRFScheduler(
                 self.optim,
                 epochs,
