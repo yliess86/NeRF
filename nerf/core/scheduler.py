@@ -57,8 +57,45 @@ class IndendityScheduler(Scheduler):
         return self._lr
 
 
-class NeRFScheduler(Scheduler):
-    """NeRF Learning Rate Scheduler
+class LogDecayScheduler(Scheduler):
+    """LogDecay Learning Rate Scheduler
+    
+    Arguments:
+        optim (Optimizer): optimizer to access learning rate
+        epochs (float): #epochs the model will be trained for
+        steps_per_epoch (float): #batch per epoch (len(loader))
+        lr_range (Optional[Tuple[float, float]]): min and max learning rate
+            (default: (5e-6, 5e-4))
+        power (float): inverse power of decay (default: 8)
+    """
+
+    def __init__(
+        self,
+        optim: Optimizer,
+        epochs: float,
+        steps_per_epoch: float,
+        lr_range: Optional[Tuple[float, float]] = (5e-6, 5e-4),
+        power: float = 8,
+    ) -> None:
+        super().__init__(optim)
+        self.epochs = epochs
+        self.steps_per_epoch = steps_per_epoch
+        self.lr_min, self.lr_max = lr_range
+        self.power = power
+        self.steps = self.epochs * steps_per_epoch
+
+        self.update_optim()
+
+    @property
+    def lr(self) -> float:
+        """Current Scheduler Learning Rate"""
+        t = self.current_step / self.steps
+        p = 1 - 10 ** (-self.power * (1 - t))
+        return self.lr_min + (self.lr_max - self.lr_min) * p
+
+
+class MipNeRFScheduler(Scheduler):
+    """Mip-NeRF Learning Rate Scheduler
     
     Arguments:
         optim (Optimizer): optimizer to access learning rate

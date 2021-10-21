@@ -15,7 +15,7 @@ from ipywidgets.widgets import Button, Image, Layout, Text, VBox
 from nerf.data import BlenderDataset
 from nerf.core import NeRF, BoundedVolumeRaymarcher as BVR
 from nerf.core.features import PositionalEncoding as PE, FourierFeatures as FF
-from nerf.core.scheduler import IndendityScheduler, NeRFScheduler, Scheduler
+from nerf.core.scheduler import IndendityScheduler, LogDecayScheduler, MipNeRFScheduler, Scheduler
 from nerf.notebook.core.standard import StandardTabsWidget
 from nerf.notebook.config.train import TrainConfig
 from nerf.train import History
@@ -210,20 +210,34 @@ class Trainer(StandardTabsWidget):
         self.criterion = MSELoss(reduction="mean").cuda()
         self.optim = Adam(self.nerf.parameters(), lr=lr, eps=eps)
         
-        if self.config.scheduler() == "MipNeRF":
+        scheduler = self.config.scheduler()
+        if scheduler == "MipNeRF":
             epochs_shift = .01 * epochs
             epochs_shift = epochs_shift if epochs_shift > 0 else 1
             steps_per_epoch = len(self.trainset) // self.config.batch_size()
             steps_per_epoch += 1 * (len(self.trainset) % self.config.batch_size() > 0)
             lr_range = lr * 1e-2, lr
 
-            self.scheduler = NeRFScheduler(
+            self.scheduler = MipNeRFScheduler(
                 self.optim,
                 epochs,
                 epochs_shift,
                 steps_per_epoch,
                 lr_range,
             )
+
+        elif scheduler == "LogDecay":
+            steps_per_epoch = len(self.trainset) // self.config.batch_size()
+            steps_per_epoch += 1 * (len(self.trainset) % self.config.batch_size() > 0)
+            lr_range = lr * 1e-2, lr
+
+            self.scheduler = LogDecayScheduler(
+                self.optim,
+                epochs,
+                steps_per_epoch,
+                lr_range,
+            )
+
         else: self.scheduler = IndendityScheduler(self.optim, lr)
         
         self.scaler = GradScaler(enabled=fp16)

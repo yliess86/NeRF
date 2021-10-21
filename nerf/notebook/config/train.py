@@ -24,9 +24,9 @@ class TrainConfig(Config):
         super().__init__()
         
     def setup_widgets(self) -> None:
-        self.register_widget("scene", Dropdown(options=self.scenes, value=self.scenes[3], description="Scene"))
+        self.register_widget("scene", Dropdown(options=self.scenes, value="lego", description="Scene"))
         self.register_widget("step", IntSlider(min=1, max=20, step=1, value=1, description="Step"))
-        self.register_widget("scale", FloatSlider(min=.1, max=1., step=.05, value=.5, description="Scale", readout_format=".2f"))
+        self.register_widget("scale", FloatSlider(min=.1, max=1., step=.05, value=1., description="Scale", readout_format=".2f"))
         
         self.register_widget("embedder", Dropdown(options=["PositionalEncoding", "FourrierFeatures"], value="PositionalEncoding", description="Method"))
         self.register_widget("features_x", IntSlider(min=1, max=1024, step=2, value=256, description="X Features"))
@@ -45,15 +45,15 @@ class TrainConfig(Config):
         self.register_widget("samples_f", IntSlider(min=0, max=512, step=2, value=64, description="Fine Samples"))
         self.register_widget("perturb", Checkbox(value=True, description="Perturb"))
         
-        self.register_widget("scheduler", Dropdown(options=["Identity", "MipNeRF"], value="MipNeRF", description="Scheduler"))
+        self.register_widget("scheduler", Dropdown(options=["Identity", "LogDecay", "MipNeRF"], value="LogDecay", description="Scheduler"))
         self.register_widget("lr", FloatSlider(min=0., max=1., step=1e-6, value=5e-4, description="Learning Rate", readout_format=".2e"))
-        self.register_widget("batch_size", IntSlider(min=2, max=2 ** 14, step=2, value=2 ** 14, description="Batch Size"))
+        self.register_widget("batch_size", IntSlider(min=2, max=4_096, step=2, value=2 ** 14, description="Batch Size"))
         self.register_widget("jobs", IntSlider(min=0, max=32, step=1, value=cpu_count(), description="Jobs"))
         self.register_widget("log", IntSlider(min=1, max=100, step=1, value=1, description="Log"))
 
         self.register_widget("strategy", Dropdown(options=["Standard", "Reptile"], value="Reptile", description="Strategy"))
         self.register_widget("fp16", Checkbox(value=True, description="Half Precision"))
-        self.register_widget("epochs", IntSlider(min=10, max=100, step=1, value=16, description="Epochs"))
+        self.register_widget("epochs", IntSlider(min=10, max=100, step=1, value=100, description="Epochs"))
         self.register_widget("steps", IntSlider(min=1, max=64, step=1, value=16, description="Steps"))
 
         def on_strategy_change(change) -> None:
