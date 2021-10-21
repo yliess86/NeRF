@@ -140,5 +140,3 @@ cython_debug/
 # Datasets
 /data/
 /res/
-/test.lr.png
-/test.infer.png
