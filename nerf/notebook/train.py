@@ -11,7 +11,7 @@ import torch
 import torch.jit as jit
 
 from IPython.display import display
-from ipywidgets.widgets import Button, Image, Layout, Text, VBox
+from ipywidgets.widgets import Button, Dropdown, Image, Layout, VBox
 from nerf.data import BlenderDataset
 from nerf.core import NeRF, BoundedVolumeRaymarcher as BVR
 from nerf.core.features import PositionalEncoding as PE, FourierFeatures as FF
@@ -43,7 +43,9 @@ class Trainer(StandardTabsWidget):
     """
 
     def __init__(self, config: TrainConfig, verbose: bool = True) -> None:
+        self.loads = sorted(os.listdir(config.root))
         super().__init__()
+        
         self.config = config
         self.verbose = verbose
 
@@ -60,7 +62,8 @@ class Trainer(StandardTabsWidget):
         self.callbacks = [self.save_callback, self.render_callback, self.plot_callback]
 
     def setup_widgets(self) -> None:
-        self.register_widget("load", Text(description="Load Config UUID", placeholder="UUID", value=""))
+        self.register_widget("load", Dropdown(options=self.loads, value=self.loads[0], description="Exp"))
+        self.register_widget("btn_load", Button(description="Load", icon="spinner"))
 
         self.register_widget("btn_dataset", Button(description="Dataset", icon="database", layout=Layout(width="80%", height="100%")))
         self.register_widget("btn_model", Button(description="Model", icon="tasks", layout=Layout(width="80%", height="100%")))
@@ -74,21 +77,14 @@ class Trainer(StandardTabsWidget):
         self.register_widget("img_psnr", Image(value=b"", format="png", layout=Layout(width="80%")))
         self.register_widget("img_lr", Image(value=b"", format="png", layout=Layout(width="80%")))
 
+        self.w_btn_load.on_click(self.setup_load)
         self.w_btn_dataset.on_click(self.setup_dataset)
         self.w_btn_model.on_click(self.setup_model)
         self.w_btn_raymarcher.on_click(self.setup_raymarcher)
         self.w_btn_optimsuite.on_click(self.setup_optimsuite)
         self.w_btn_fit.on_click(self.fit)
 
-        def on_load_change(change) -> None:
-            if len(change.new) > 0:
-                root = os.path.join(self.config.root, change.new)
-                cfg = [f for f in os.listdir(root) if f.endswith(".yml")]
-                self.config.load(os.path.join(root, cfg[0]))
-                print(f"[Config] Loaded Config w/ UUID({self.config.uuid})")
-
-        self.w_load.observe(on_load_change, "value")
-
+        self.w_btn_load.disabled = False
         self.w_btn_dataset.disabled = False
         self.w_btn_model.disabled = True
         self.w_btn_raymarcher.disabled = True
@@ -96,9 +92,24 @@ class Trainer(StandardTabsWidget):
         self.w_btn_fit.disabled = True
 
     def setup_tabs(self) -> None:
+        self.register_tab("import", 1, 2, ["load", "btn_load"])
         self.register_tab("actions", 1, 5, ["btn_dataset", "btn_model", "btn_raymarcher", "btn_optimsuite", "btn_fit"])
         self.register_tab("images", 1, 2, ["img_gt", "img_pred"])
         self.register_tab("graphs", 2, 2, ["img_mse", "img_psnr", "img_lr", None])
+
+    def setup_load(self, change) -> None:
+        root = os.path.join(self.config.root, self.load())
+        cfg = [f for f in os.listdir(root) if f.endswith(".yml")]
+        self.config.load(os.path.join(root, cfg[0]))
+        print(f"[Config] Loaded Config w/ UUID({self.config.uuid})")
+        
+        self.config.disable()
+        self.w_btn_load.disabled = True
+        self.w_btn_dataset.disabled = True
+        self.w_btn_model.disabled = True
+        self.w_btn_raymarcher.disabled = True
+        self.w_btn_optimsuite.disabled = True
+        self.w_btn_fit.disabled = True
 
     def setup_dataset(self, change) -> None:
         if hasattr(self, "trainset"): self.trainset = None
@@ -132,6 +143,7 @@ class Trainer(StandardTabsWidget):
 
         print("[Setup] Dataset Ready")
 
+        self.w_btn_load.disabled = True
         self.w_btn_dataset.disabled = True
         self.w_btn_model.disabled = False
         self.w_btn_raymarcher.disabled = True
@@ -174,6 +186,7 @@ class Trainer(StandardTabsWidget):
         print("[Setup] Model Ready")
         summary(self.nerf, [(1, 3), (1, 3)])
 
+        self.w_btn_load.disabled = True
         self.w_btn_dataset.disabled = True
         self.w_btn_model.disabled = True
         self.w_btn_raymarcher.disabled = False
@@ -192,6 +205,7 @@ class Trainer(StandardTabsWidget):
         
         print("[Setup] Raymarcher Ready")
 
+        self.w_btn_load.disabled = True
         self.w_btn_dataset.disabled = True
         self.w_btn_model.disabled = True
         self.w_btn_raymarcher.disabled = True
@@ -244,6 +258,7 @@ class Trainer(StandardTabsWidget):
 
         print("[Setup] Optimizer Ready")
 
+        self.w_btn_load.disabled = True
         self.w_btn_dataset.disabled = True
         self.w_btn_model.disabled = True
         self.w_btn_raymarcher.disabled = True
@@ -418,4 +433,4 @@ class Trainer(StandardTabsWidget):
         self.enable()
 
     def display(self) -> None:
-        display(VBox([self.w_load, self.config.app, self.app]))
+        display(VBox([self.config.app, self.app]))

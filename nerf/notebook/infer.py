@@ -5,7 +5,7 @@ import torch
 import torch.jit as jit
 
 from IPython.display import display
-from ipywidgets.widgets import Button, FloatSlider, FloatRangeSlider, Image, Layout, VBox
+from ipywidgets.widgets import Button, FloatRangeSlider, Image, Layout, VBox
 from moviepy.editor import ImageSequenceClip
 from nerf.data import BlenderDataset
 from nerf.core import NeRF, BoundedVolumeRaymarcher as BVR
@@ -41,9 +41,10 @@ class Inferer(StandardTabsWidget):
         self.register_widget("btn_raymarcher", Button(description="Raymarcher", icon="cloud", layout=Layout(width="80%", height="100%")))
         self.register_widget("btn_render", Button(description="Render", icon="camera", layout=Layout(width="80%", height="100%")))
 
-        self.register_widget("theta", FloatRangeSlider(min=-2. * np.pi, max=2. * np.pi, step=.1, value=[-1 / 6 * np.pi, -1 / 6 * np.pi], description="Theta"))
-        self.register_widget("phi", FloatRangeSlider(min=-2. * np.pi, max=2. * np.pi, step=.1, value=[-np.pi, np.pi], description="Phi"))
-        self.register_widget("radius", FloatSlider(min=0., max=10., step=.1, value=4., description="Radius"))
+        self.register_widget("theta", FloatRangeSlider(min=-2. * np.pi, max=2. * np.pi, step=.1, value=[-np.pi, np.pi], description="Theta"))
+        self.register_widget("phi",   FloatRangeSlider(min=-2. * np.pi, max=2. * np.pi, step=.1, value=[-np.pi, np.pi], description="Phi"))
+        self.register_widget("psy",   FloatRangeSlider(min=-2. * np.pi, max=2. * np.pi, step=.1, value=[-np.pi, np.pi], description="Psy"))
+        self.register_widget("radius", FloatRangeSlider(min=0., max=10., step=.1, value=[4., 4.], description="Radius"))
 
         self.register_widget("gif_pred", Image(value=b"", format="gif", width=256, height=256, layout=Layout(width="80%")))
         
@@ -52,9 +53,14 @@ class Inferer(StandardTabsWidget):
         self.w_btn_raymarcher.on_click(self.setup_raymarcher)
         self.w_btn_render.on_click(self.render)
 
+        self.w_btn_dataset.disabled = False
+        self.w_btn_model.disabled = True
+        self.w_btn_raymarcher.disabled = True
+        self.w_btn_render.disabled = True
+
     def setup_tabs(self) -> None:
         self.register_tab("actions", 1, 4, ["btn_dataset", "btn_model", "btn_raymarcher", "btn_render"])
-        self.register_tab("traj", 1, 3, ["radius", "theta", "phi"])
+        self.register_tab("traj", 1, 4, ["radius", "theta", "phi", "psy"])
         self.register_tab("viz", 1, 1, ["gif_pred"])
 
     def setup_dataset(self, change) -> None:
@@ -70,6 +76,11 @@ class Inferer(StandardTabsWidget):
 
         print("[Setup] Dataset Ready")
 
+        self.w_btn_dataset.disabled = True
+        self.w_btn_model.disabled = False
+        self.w_btn_raymarcher.disabled = True
+        self.w_btn_render.disabled = True
+
     def setup_model(self, change) -> None:
         if hasattr(self, "nerf"):
             self.nerf = None
@@ -79,6 +90,11 @@ class Inferer(StandardTabsWidget):
         self.nerf.infer = lambda *args, **kwargs: NeRF.infer(self.nerf, *args, **kwargs)
         
         print("[Setup] Model Ready")
+
+        self.w_btn_dataset.disabled = True
+        self.w_btn_model.disabled = True
+        self.w_btn_raymarcher.disabled = False
+        self.w_btn_render.disabled = True
 
     def setup_raymarcher(self, change) -> None:
         if hasattr(self, "raymarcher"):
@@ -92,6 +108,11 @@ class Inferer(StandardTabsWidget):
         
         print("[Setup] Raymarcher Ready")
 
+        self.w_btn_dataset.disabled = True
+        self.w_btn_model.disabled = True
+        self.w_btn_raymarcher.disabled = True
+        self.w_btn_render.disabled = False
+
     def render(self, change) -> None:
         self.config.disable()
         self.disable()
@@ -101,15 +122,16 @@ class Inferer(StandardTabsWidget):
         batch_size = self.config.batch_size()
         path = self.config.pred_gif
 
-        theta = self.w_theta.value
-        phi = self.w_phi.value
-        radius = self.w_radius.value
+        theta = self.theta()
+        phi = self.phi()
+        psy = self.psy()
+        radius = self.radius()
 
         H, W = self.dataset.H, self.dataset.W
         S = H * W
 
         print("[Setup] Creating Rays")
-        args = theta, phi, radius, frames
+        args = theta, phi, psy, radius, frames
         ros, rds = self.dataset.turnaround_data(*args)
         
         d = next(self.nerf.parameters()).device

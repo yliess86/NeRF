@@ -188,7 +188,8 @@ class BlenderDataset(Dataset):
         self,
         theta: Tuple[float, float],
         phi: Tuple[float, float],
-        radius: float,
+        psy: Tuple[float, float],
+        radius: Tuple[float, float],
         samples: int = 40,
     ) -> Tuple[Tensor, Tensor]:
         """Turnaround data
@@ -196,14 +197,15 @@ class BlenderDataset(Dataset):
         Arguments:
             theta (Tuple[float, float]): angle range theta
             phi (Tuple[float, float]): angle range phi
-            z (float): depth z (default: 4.)
+            psy (Tuple[float, float]): angle range psy
+            radius (Tuple[float, float]): depth range z (radius)
             samples (int): number of sample N along the path (default: 40)
 
         Returns:
             ro (Tensor): ray origin (3, )
             rd (Tensor): ray direction (3, )
         """
-        poses = turnaround_poses(theta, phi, radius, samples)
+        poses = turnaround_poses(theta, phi, psy, radius, samples)
         
         ro, rd  = build_rays(self, *self.SIZE, self.focal, poses)
         ro = ro.view(-1, 3)

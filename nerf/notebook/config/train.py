@@ -47,7 +47,7 @@ class TrainConfig(Config):
         
         self.register_widget("scheduler", Dropdown(options=["Identity", "LogDecay", "MipNeRF"], value="LogDecay", description="Scheduler"))
         self.register_widget("lr", FloatSlider(min=0., max=1., step=1e-6, value=5e-4, description="Learning Rate", readout_format=".2e"))
-        self.register_widget("batch_size", IntSlider(min=2, max=4_096, step=2, value=2 ** 14, description="Batch Size"))
+        self.register_widget("batch_size", IntSlider(min=2, max=2 ** 14, step=2, value=4_096, description="Batch Size"))
         self.register_widget("jobs", IntSlider(min=0, max=32, step=1, value=cpu_count(), description="Jobs"))
         self.register_widget("log", IntSlider(min=1, max=100, step=1, value=1, description="Log"))
 
