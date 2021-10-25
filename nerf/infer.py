@@ -51,6 +51,7 @@ def infer(
 
     depth_map = depth_map.view(H, W, 1)
     depth_map = depth_map.repeat((1, 1, 3))
+    depth_map = depth_map.nan_to_num()
     depth_map = depth_map - depth_map.min()
     depth_map = depth_map / (depth_map.max() + 1e-10)
     depth_map = depth_map.clip(0, 1) * 255
