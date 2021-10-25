@@ -3,8 +3,9 @@
 Efficient and comprehensive pytorch implementation of [NeRF: Representing Scenes as Neural Radiance Fields for View Synthesis](https://arxiv.org/abs/2003.08934) from Mildenhall et al. 2020.
 
 <p align="center">
-  <img src="imgs/hotdog/pred.png" alt="hotdog_pred" width=40%>
-  <img src="imgs/drums/pred.png" alt="drums_pred" width=40%>
+  <img src="docs/imgs/hotdog/rgb_map.gif" alt="hotdog" width=30%>
+  <img src="docs/imgs/lego/rgb_map.gif" alt="lego" width=30%>
+  <img src="docs/imgs/chair/rgb_map.gif" alt="chair" width=30%>
 </p>
 
 *Table of Content*
@@ -222,10 +223,11 @@ A total of `N_c + N_f` is finally used to generate the last render, this time qu
 - [ ] Quantization
 
 *Results (WIP)*
-|Ground Truth|Prediction|Inference Animation|
+|Ground Truth|NeRF RGB Map|NeRF Depth Map|
 |:----------:|:--------:|:-----------------:|
-|![hotdog_gt](imgs/hotdog/gt.png)|![hotdog_pred](imgs/hotdog/pred.png)|![hotdog_gif](imgs/hotdog/pred.gif)|
-|![drums_gt](imgs/drums/gt.png)|![drums_pred](imgs/drums/pred.png)|![drums_gif](imgs/drums/pred.gif)|
+|![chair_gt](docs/imgs/chair/gt.png)|![chair_rgb_map](docs/imgs/chair/rgb_map.gif)|![chair_depth_map](docs/imgs/chair/depth_map.gif)|
+|![lego_gt](docs/imgs/lego/gt.png)|![lego_rgb_map](docs/imgs/lego/rgb_map.gif)|![lego_depth_map](docs/imgs/lego/depth_map.gif)|
+|![hotdog_gt](docs/imgs/hotdog/gt.png)|![hotdog_rgb_map](docs/imgs/hotdog/rgb_map.gif)|![hotdog_depth_map](docs/imgs/hotdog/depth_map.gif)|
 
 
 <span id="citation"></span>
