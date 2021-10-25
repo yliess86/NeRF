@@ -181,10 +181,14 @@ class BoundedVolumeRaymarcher:
         Returns:
             t (Tensor): z-values from near to far (B, N)
             weights (Tensor): absorbtion weights for each ray (B, N)
+            depth_map (Tensor): depth map for each ray (B, )
             rgb_map (Tensor): accumulated render color for each ray (B, 3)
         """
         Nc, Nf = self.samples_c, self.samples_f
         bounds = self.tn, self.tf
         
-        if Nf > 0: return render_volume_fine(nerf, ro, rd, *bounds, Nc, Nf, perturb, train)
-        return render_volume_coarse(nerf, ro, rd, *bounds, Nc, perturb)
+        if Nf > 0: t, weights, rgb_map = render_volume_fine(nerf, ro, rd, *bounds, Nc, Nf, perturb, train)
+        else: t, weights, rgb_map = render_volume_coarse(nerf, ro, rd, *bounds, Nc, perturb)
+        depth_map = torch.sum(weights * t, dim=-1)
+
+        return t, weights, depth_map, rgb_map

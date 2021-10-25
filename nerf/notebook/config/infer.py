@@ -47,5 +47,9 @@ class InferConfig(Config):
         return self.tcfg.model_ts
     
     @property
-    def pred_gif(self) -> str:
-        return os.path.join(self.tcfg.res, f"NeRF_{self.scene()}_pred.gif")
+    def rgb_map_gif(self) -> str:
+        return os.path.join(self.tcfg.res, f"NeRF_{self.scene()}_rgb_map.gif")
+
+    @property
+    def depth_map_gif(self) -> str:
+        return os.path.join(self.tcfg.res, f"NeRF_{self.scene()}_depth_map.gif")

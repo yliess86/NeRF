@@ -110,5 +110,9 @@ class TrainConfig(Config):
         return os.path.join(self.res, f"NeRF_{self.scene()}_gt.png")
         
     @property
-    def pred_png(self) -> str:
-        return os.path.join(self.res, f"NeRF_{self.scene()}_pred.png")
+    def rgb_png(self) -> str:
+        return os.path.join(self.res, f"NeRF_{self.scene()}_rgb.png")
+
+    @property
+    def depth_png(self) -> str:
+        return os.path.join(self.res, f"NeRF_{self.scene()}_depth.png")

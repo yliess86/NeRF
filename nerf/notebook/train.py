@@ -72,7 +72,8 @@ class Trainer(StandardTabsWidget):
         self.register_widget("btn_fit", Button(description="Fit", icon="space-shuttle", layout=Layout(width="80%", height="100%")))
 
         self.register_widget("img_gt", Image(value=b"", format="png", layout=Layout(width="80%")))
-        self.register_widget("img_pred", Image(value=b"", format="png", layout=Layout(width="80%")))
+        self.register_widget("img_rgb", Image(value=b"", format="png", layout=Layout(width="80%")))
+        self.register_widget("img_depth", Image(value=b"", format="png", layout=Layout(width="80%")))
         self.register_widget("img_mse", Image(value=b"", format="png", layout=Layout(width="80%")))
         self.register_widget("img_psnr", Image(value=b"", format="png", layout=Layout(width="80%")))
         self.register_widget("img_lr", Image(value=b"", format="png", layout=Layout(width="80%")))
@@ -94,7 +95,7 @@ class Trainer(StandardTabsWidget):
     def setup_tabs(self) -> None:
         self.register_tab("import", 1, 2, ["load", "btn_load"])
         self.register_tab("actions", 1, 5, ["btn_dataset", "btn_model", "btn_raymarcher", "btn_optimsuite", "btn_fit"])
-        self.register_tab("images", 1, 2, ["img_gt", "img_pred"])
+        self.register_tab("images", 2, 2, ["img_gt", "img_rgb", None, "img_depth"])
         self.register_tab("graphs", 2, 2, ["img_mse", "img_psnr", "img_lr", None])
 
     def setup_load(self, change) -> None:
@@ -287,17 +288,25 @@ class Trainer(StandardTabsWidget):
             rd = self.valset.rd[:H * W]
 
             batch_size = self.config.batch_size()
-            path = self.config.pred_png
 
             args = self.raymarcher, ro, rd, H, W
-            pred = self.nerf.infer(*args, batch_size=batch_size, verbose=self.verbose)
-            pred = pred.numpy().astype(np.uint8)
+            depth_map, rgb_map = self.nerf.infer(*args, batch_size=batch_size, verbose=self.verbose)
+            depth_map = depth_map.numpy().astype(np.uint8)
+            rgb_map = rgb_map.numpy().astype(np.uint8)
             
-            img = PImage.fromarray(pred)
+            path = self.config.rgb_png
+            img = PImage.fromarray(rgb_map)
             img.save(path)
 
             with open(path, "rb") as f:
-                self.w_img_pred.value = f.read()
+                self.w_img_rgb.value = f.read()
+
+            path = self.config.depth_png
+            img = PImage.fromarray(depth_map)
+            img.save(path)
+
+            with open(path, "rb") as f:
+                self.w_img_depth.value = f.read()
 
             if not self.verbose:
                 mse, psnr = history.train[-1]

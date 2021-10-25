@@ -30,21 +30,35 @@ def infer(
         verbose (bool): print tqdm
 
     Returns:
-        pred (Tensor): rendered frame [0, 255] (H, W, 3)
+        depth_map (Tensor): rendered depth map [0, 255] (H, W, 3)
+        rgb_map (Tensor): rendered rgb map [0, 255] (H, W, 3)
     """
     d = next(nerf.parameters()).device
     n = ro.size(0)
     
     ro, rd = ro.to(d), rd.to(d)
-    pred = torch.zeros((H * W, 3), dtype=torch.float32)
+
+    depth_map = torch.zeros((H * W, ), dtype=torch.float32)
+    rgb_map = torch.zeros((H * W, 3), dtype=torch.float32)
 
     batches = range(0, n, batch_size)
     for s in tqdm(batches, desc="[NeRF] Rendering", disable=not verbose):
         e = min(s + batch_size, n)
-        *_, C = raymarcher.render_volume(nerf, ro[s:e], rd[s:e], train=False)
-        pred[s:e] = C.cpu()
+        *_, D, C = raymarcher.render_volume(nerf, ro[s:e], rd[s:e], train=False)
+        
+        depth_map[s:e] = D.cpu()
+        rgb_map[s:e] = C.cpu()
 
-    return pred.view(H, W, 3).clip(0, 1) * 255
+    depth_map = depth_map.view(H, W, 1)
+    depth_map = depth_map.repeat((1, 1, 3))
+    depth_map = depth_map - depth_map.min()
+    depth_map = depth_map / (depth_map.max() + 1e-10)
+    depth_map = depth_map.clip(0, 1) * 255
+
+    rgb_map = rgb_map.view(H, W, 3)
+    rgb_map = rgb_map.clip(0, 1) * 255
+    
+    return depth_map, rgb_map
 
 
 NeRF.infer = infer
