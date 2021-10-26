@@ -22,6 +22,8 @@ Efficient and comprehensive pytorch implementation of [NeRF: Representing Scenes
   - [Implicit Representation](#implicitrepresentation)
   - [Volume Rendering](#volumerendering)
 - [Implemenation](#implementation)
+  - [Details](#implementation-details)
+  - [Results](#implementation-results)
 - [Citation](#citation)
 
 
@@ -207,28 +209,31 @@ A total of `N_c + N_f` is finally used to generate the last render, this time qu
 
 
 <span id="implementation"></span>
-## Implementation (WIP)
+## Implementation
 
-*Status (WIP)*
-- [x] Fourier Featrure Encoding
-- [x] Positional Encoding
-- [x] Neural Radiance Field Model
-- [x] Bounded Volume Raymarcher
-- [x] Noise for Continuous Representation
-- [x] Camera Paths (Turnaround, ...)
-- [x] Interactive Notebook
-- [x] Meta-Learning as in [Tanick et al.](https://arxiv.org/abs/2012.02189) (see [Nichol et al.](https://arxiv.org/abs/1803.02999))
-- [x] Shifted Softplus for Sigma as in (see [Barron et al.](https://arxiv.org/abs/2103.13415))
-- [x] Widened Sigmoid for RGB as in (see [Barron et al.](https://arxiv.org/abs/2103.13415))
-- [x] Fine Network (Differ from Original: No second Network)
-- [x] Training Opitmizations (see [Nvidia's PyTorch Performance Tuning Guide](https://nvlabs.github.io/eccv2020-mixed-precision-tutorial/))
-- [x] Safe Sofplus, Sigmoid (see [Blog Article by Jia Fu Low](https://jiafulow.github.io/blog/2019/07/11/softplus-and-softminus/))
-- [x] Gradient Clipping
-- [x] NeRF/JAX-NeRF Warmup Decay Leanring Rate Scheduler (see [Barron et al.](https://arxiv.org/abs/2103.13415))
-- [ ] Knowledge Distillation (see Teacher-Student Methods)
-- [ ] Quantization
+<span id="implementation-details"></span>
+*Details*
+|Feature|Reference|
+|:------|:--------|
+|Fourier Featrure Encoding||
+|Positional Encoding||
+|Neural Radiance Field Model||
+|Bounded Volume Raymarcher||
+|Noise for Continuous Representation||
+|Camera Paths (Turnaround, ...)||
+|Interactive Notebook||
+|Reptile Meta-Learning|[Tanick et al.](https://arxiv.org/abs/2012.02189), [Nichol et al.](https://arxiv.org/abs/1803.02999)|
+|Shifted Softplus for Sigma|[Barron et al.](https://arxiv.org/abs/2103.13415)|
+|Widened Sigmoid for RGB|[Barron et al.](https://arxiv.org/abs/2103.13415)|
+|Fine Network (Differs from Original, No second Network)||
+|Training Opitmizations|[Nvidia's PyTorch Performance Tuning Guide](https://nvlabs.github.io/eccv2020-mixed-precision-tutorial/)|
+|Safe Sofplus, Sigmoid|[Blog Article by Jia Fu Low](https://jiafulow.github.io/blog/2019/07/11/softplus-and-softminus/)|
+|Gradient Clipping||
+|NeRF/JAX-NeRF Warmup Decay Leanring Rate Scheduler|[Barron et al.](https://arxiv.org/abs/2103.13415)|
+|Log Decay Leanring Rate Scheduler||
 
-*Results (WIP)*
+<span id="implementation-results"></span>
+*Results*
 |Scene|Ground Truth|NeRF RGB Map|NeRF Depth Map|
 |:----|:----------:|:--------:|:-----------------:|
 |Chair|![chair_gt](docs/imgs/chair/gt.png)|![chair_rgb_map](docs/imgs/chair/rgb_map.gif)|![chair_depth_map](docs/imgs/chair/depth_map.gif)|
