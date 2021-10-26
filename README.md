@@ -3,9 +3,15 @@
 Efficient and comprehensive pytorch implementation of [NeRF: Representing Scenes as Neural Radiance Fields for View Synthesis](https://arxiv.org/abs/2003.08934) from Mildenhall et al. 2020.
 
 <p align="center">
-  <img src="docs/imgs/hotdog/rgb_map.gif" alt="hotdog" width=30%>
-  <img src="docs/imgs/lego/rgb_map.gif" alt="lego" width=30%>
-  <img src="docs/imgs/chair/rgb_map.gif" alt="chair" width=30%>
+  <img src="docs/imgs/hotdog/rgb_map.gif" alt="hotdog" width=20%>
+  <img src="docs/imgs/lego/rgb_map.gif" alt="lego" width=20%>
+  <img src="docs/imgs/chair/rgb_map.gif" alt="chair" width=20%>
+  <img src="docs/imgs/drums/rgb_map.gif" alt="drums" width=20%>
+  
+  <img src="docs/imgs/mic/rgb_map.gif" alt="mic" width=20%>
+  <img src="docs/imgs/materials/rgb_map.gif" alt="materials" width=20%>
+  <img src="docs/imgs/ficus/rgb_map.gif" alt="ficus" width=20%>
+  <img src="docs/imgs/ship/rgb_map.gif" alt="ship" width=20%>
 </p>
 
 *Table of Content*
@@ -223,11 +229,16 @@ A total of `N_c + N_f` is finally used to generate the last render, this time qu
 - [ ] Quantization
 
 *Results (WIP)*
-|Ground Truth|NeRF RGB Map|NeRF Depth Map|
-|:----------:|:--------:|:-----------------:|
-|![chair_gt](docs/imgs/chair/gt.png)|![chair_rgb_map](docs/imgs/chair/rgb_map.gif)|![chair_depth_map](docs/imgs/chair/depth_map.gif)|
-|![lego_gt](docs/imgs/lego/gt.png)|![lego_rgb_map](docs/imgs/lego/rgb_map.gif)|![lego_depth_map](docs/imgs/lego/depth_map.gif)|
-|![hotdog_gt](docs/imgs/hotdog/gt.png)|![hotdog_rgb_map](docs/imgs/hotdog/rgb_map.gif)|![hotdog_depth_map](docs/imgs/hotdog/depth_map.gif)|
+|Scene|Ground Truth|NeRF RGB Map|NeRF Depth Map|
+|:----|:----------:|:--------:|:-----------------:|
+|Chair|![chair_gt](docs/imgs/chair/gt.png)|![chair_rgb_map](docs/imgs/chair/rgb_map.gif)|![chair_depth_map](docs/imgs/chair/depth_map.gif)|
+|Lego|![lego_gt](docs/imgs/lego/gt.png)|![lego_rgb_map](docs/imgs/lego/rgb_map.gif)|![lego_depth_map](docs/imgs/lego/depth_map.gif)|
+|HotDog|![hotdog_gt](docs/imgs/hotdog/gt.png)|![hotdog_rgb_map](docs/imgs/hotdog/rgb_map.gif)|![hotdog_depth_map](docs/imgs/hotdog/depth_map.gif)|
+|Drums|![drums_gt](docs/imgs/drums/gt.png)|![drums_rgb_map](docs/imgs/drums/rgb_map.gif)|![drums_depth_map](docs/imgs/drums/depth_map.gif)|
+|Mic|![mic_gt](docs/imgs/mic/gt.png)|![mic_rgb_map](docs/imgs/mic/rgb_map.gif)|![mic_depth_map](docs/imgs/mic/depth_map.gif)|
+|Materials|![materials_gt](docs/imgs/materials/gt.png)|![mic_rgb_map](docs/imgs/materials/rgb_map.gif)|![materials_depth_map](docs/imgs/materials/depth_map.gif)|
+|Ficus|![ficus_gt](docs/imgs/ficus/gt.png)|![ficus_rgb_map](docs/imgs/ficus/rgb_map.gif)|![ficus_depth_map](docs/imgs/ficus/depth_map.gif)|
+|Ship|![ship_gt](docs/imgs/ship/gt.png)|![ship_rgb_map](docs/imgs/ship/rgb_map.gif)|![ship_depth_map](docs/imgs/ship/depth_map.gif)|
 
 
 <span id="citation"></span>
