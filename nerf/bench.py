@@ -1,0 +1,237 @@
+"""python3 -m nerf.bench
+
+Benchmark NeRF performances in seconds (s) and frames per second (FPS).
++---------+---------+---------+---------+
+| Metric  |   min   |   avg   |   max   |
++---------+---------+---------+---------+
+| Seconds |         |         |         |
++---------+---------+---------+---------+
+| FPS     |         |         |         |
++---------+---------+---------+---------+
+"""
+import numpy as np
+import torch
+
+from nerf.core.model import NeRF
+from nerf.core.renderer import BoundedVolumeRaymarcher as BVR
+from nerf.utils.pbar import tqdm
+from prettytable import PrettyTable
+from time import time
+from typing import NamedTuple
+
+
+class BenchmarkConfig(NamedTuple):
+    """Benchmark Configuration
+
+    Arguments:
+        H (int): image height
+        W (int): image width
+        B (int): batch size
+    """
+    H: int
+    W: int
+    B: int
+
+
+class BenchmarkData(NamedTuple):
+    """Benchmark Data
+
+    Arguments:
+        min (float): minimum value
+        avg (float): average value
+        max (float): maximum value
+    """
+    min: float
+    avg: float
+    max: float
+
+
+class BenchmarkRecord(NamedTuple):
+    """Benchmark Record
+
+    Arguments:
+        time (BenchmarkData): time record (in seconds)
+        fps (BenchmarkData): frame per second record (in fps)
+    """
+    time: BenchmarkData
+    fps: BenchmarkData
+
+
+class Benchmark:
+    """Benchmark
+
+    Arguments:
+        config (BenchmarkConfig): benchmark config
+        trials (int): number of trials (default: 100)
+    """
+
+    def __init__(self, config: BenchmarkConfig, trials: int = 100) -> None:
+        self.config = config
+        self.trials = trials
+
+    def process(self) -> None:
+        """Process to benchmark"""
+        raise NotImplementedError("Process not Implemented yet!")
+
+    def profile(self) -> float:
+        """Profile Process
+        
+        Returns:
+            dt (float): time spent processing
+        """
+        t_start = time()
+        self.process()
+        t_end = time()
+        return t_end - t_start
+
+    def run(self) -> BenchmarkRecord:
+        """Run benchmark
+        
+        Returns:
+            record (BenchmarkRecord): collected benchmark record
+        """
+        name = self.__class__.__name__
+        pbar = tqdm(range(self.trials), desc=f"[Bench] {name}")
+        profiles = [self.profile() for _ in pbar]
+        
+        min_time = np.min(profiles)
+        avg_time = np.average(profiles)
+        max_time = np.max(profiles)
+        time = BenchmarkData(min_time, avg_time, max_time)
+
+        min_fps = 1. / max_time
+        avg_fps = 1. / avg_time
+        max_fps = 1. / min_time
+        fps = BenchmarkData(min_fps, avg_fps, max_fps)
+
+        return BenchmarkRecord(time, fps)
+
+
+class BenchmarkInference(Benchmark):
+    """"Inference Benchmark
+
+    Arguments:
+        nerf (NeRF): pretrained nerf
+        raymarcher (BVR): scene raymarcher
+        config (BenchmarkConfig): benchmark config
+        trials (int): number of trials (default: 100)
+    """
+    
+    def __init__(
+        self,
+        nerf: NeRF,
+        renderer: BVR,
+        config: BenchmarkConfig,
+        trials: int = 100,
+    ) -> None:
+        super().__init__(config, trials)
+        self.nerf = nerf
+        self.raymarcher = raymarcher
+        self.device = next(nerf.parameters()).device
+
+        self.ro = torch.rand((self.config.H * self.config.W, 3), device=self.device)
+        self.rd = torch.rand((self.config.H * self.config.W, 3), device=self.device)
+        
+        self.rgb = torch.zeros((self.config.H * self.config.W, 3), device=self.device)
+        self.depth = torch.zeros((self.config.H * self.config.W), device=self.device)
+
+    @torch.inference_mode()
+    def process(self) -> None:
+        """Rendering process to benchmark"""
+        B = self.config.B
+        n = self.ro.size(0)
+
+        for s in range(0, n, B):
+            e = min(s + B, n)
+            
+            ro, rd = self.ro[s:e], self.rd[s:e]
+            *_, D, C = self.raymarcher.render_volume(self.nerf, ro, rd)
+            self.rgb[s:e], self.depth[s:e] = C, D
+
+        self.depth = self.depth.nan_to_num()
+        self.depth = self.depth - self.depth.min()
+        self.depth = self.depth / (self.depth.max() + 1e-10)
+        self.depth = self.depth.clip(0, 1) * 255
+
+        self.rgb = self.rgb.clip(0, 1) * 255
+
+
+def benchmark(
+    nerf: NeRF,
+    raymarcher: BVR,
+    H: int,
+    W: int,
+    batch_size: int,
+    trials: int = 100,
+) -> str:
+    """"Benchmark
+
+    Arguments:
+        nerf (NeRF): pretrained nerf
+        raymarcher (BVR): scene raymarcher
+        config (BenchmarkConfig): benchmark config
+        trials (int): number of trials (default: 100)
+
+    Returns:
+        summary (str): benchmark summary
+    """
+    args = nerf, raymarcher
+
+    config = BenchmarkConfig(H, W, batch_size)
+    rec = BenchmarkInference(*args, config, trials).run()
+    format = lambda x: f"{x:.2f}"
+
+    summary = PrettyTable()
+    summary.field_names = ["Metric", "min", "avg", "max"]
+    summary.add_row(["Seconds", *map(format, rec.time)])
+    summary.add_row(["FPS", *map(format, rec.fps)])
+    return summary
+
+
+F32_BYTES = 4
+F16_BYTES = 2
+def size(nerf: NeRF, res: int = F32_BYTES) -> int:
+    """Measure NeRF Size
+
+    Arguments:
+        nerf (NeRF): pretrained nerf
+
+    Returns:
+        size (int): size in bytes
+    """
+    return np.sum([np.product(p.size()) * res for p in nerf.parameters()])
+
+
+if __name__ == "__main__":
+    import torch.jit as jit
+
+    from argparse import ArgumentParser, RawDescriptionHelpFormatter
+
+
+    parser = ArgumentParser(__doc__, formatter_class=RawDescriptionHelpFormatter)
+    parser.add_argument("-i", "--input",      type=str, required= True, help="TorchScript NeRF path")
+    parser.add_argument(      "--height",     type=int, default=   800, help="Frame height")
+    parser.add_argument(      "--width",      type=int, default=   800, help="Frame width")
+    parser.add_argument("-c", "--coarse",     type=int, default=    64, help="Coarse samples")
+    parser.add_argument("-f", "--fine",       type=int, default=    64, help="Fine samples")
+    parser.add_argument("-b", "--batch_size", type=int, default=16_384, help="Frame width")
+    parser.add_argument("-t", "--trials",     type=int, default=    10, help="Benchmark trials")
+    parser.add_argument("-d", "--device",     type=int, default=     0, help="Cuda GPU ID (-1 for CPU)")
+    args = parser.parse_args()
+
+    device = "cpu" if args.device < 0 else f"cuda:{args.device}"
+    nerf = jit.load(args.input).to(device)
+    raymarcher = BVR(2., 6., args.coarse, args.fine)
+
+    print(benchmark(
+        nerf,
+        raymarcher,
+        args.height,
+        args.width,
+        args.batch_size,
+        trials=args.trials,
+    ))
+
+    f32_size = size(nerf, res=F32_BYTES) / 1e6
+    f16_size = size(nerf, res=F16_BYTES) / 1e6
+    print(f"[Bench] Model Size: {f32_size:.2f} MB (f32), {f16_size:.2f} MB (f16)")
