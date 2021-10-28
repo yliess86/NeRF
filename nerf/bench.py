@@ -209,19 +209,21 @@ if __name__ == "__main__":
 
 
     parser = ArgumentParser(__doc__, formatter_class=RawDescriptionHelpFormatter)
-    parser.add_argument("-i", "--input",      type=str, required= True, help="TorchScript NeRF path")
-    parser.add_argument(      "--height",     type=int, default=   800, help="Frame height")
-    parser.add_argument(      "--width",      type=int, default=   800, help="Frame width")
-    parser.add_argument("-c", "--coarse",     type=int, default=    64, help="Coarse samples")
-    parser.add_argument("-f", "--fine",       type=int, default=    64, help="Fine samples")
-    parser.add_argument("-b", "--batch_size", type=int, default=16_384, help="Frame width")
-    parser.add_argument("-t", "--trials",     type=int, default=    10, help="Benchmark trials")
-    parser.add_argument("-d", "--device",     type=int, default=     0, help="Cuda GPU ID (-1 for CPU)")
+    parser.add_argument("-i", "--input",      type=str,   required=True,  help="TorchScript NeRF path")
+    parser.add_argument(      "--height",     type=int,   default=800,    help="Frame height")
+    parser.add_argument(      "--width",      type=int,   default=800,    help="Frame width")
+    parser.add_argument(      "--near",       type=float, default=2.,     help="Near Plane")
+    parser.add_argument(      "--far",        type=float, default=6.,     help="Far Plane")
+    parser.add_argument("-c", "--coarse",     type=int,   default=64,     help="Coarse samples")
+    parser.add_argument("-f", "--fine",       type=int,   default=64,     help="Fine samples")
+    parser.add_argument("-b", "--batch_size", type=int,   default=16_384, help="Frame width")
+    parser.add_argument("-t", "--trials",     type=int,   default=10,     help="Benchmark trials")
+    parser.add_argument("-d", "--device",     type=int,   default=0,      help="Cuda GPU ID (-1 for CPU)")
     args = parser.parse_args()
 
     device = "cpu" if args.device < 0 else f"cuda:{args.device}"
     nerf = jit.load(args.input).to(device)
-    raymarcher = BVR(2., 6., args.coarse, args.fine)
+    raymarcher = BVR(args.near, args.far, args.coarse, args.fine)
 
     print(benchmark(
         nerf,
