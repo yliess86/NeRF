@@ -389,7 +389,7 @@ if __name__ == "__main__":
         
 
     if args.reptile:
-        H = reptile(
+        reptile(
             nerf,
             raymarcher,
             optim,
@@ -404,7 +404,7 @@ if __name__ == "__main__":
             callbacks=[SAVE_CBK, RENDER_CBK],
         )
 
-    H = fit(
+    fit(
         nerf,
         raymarcher,
         optim,
