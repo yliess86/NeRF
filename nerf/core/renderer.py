@@ -65,7 +65,7 @@ def render_volume_coarse(
 
     Arguments:
         nerf (NeRF): query Neural Radiance Field model
-        rx (Tensor): ray query position (B, 3)
+        ro (Tensor): ray query origin (B, 3)
         rd (Tensor): ray query direction (B, 3)
         tn (float): near plane
         tf (float): far plane
@@ -105,7 +105,7 @@ def render_volume_fine(
 
     Arguments:
         nerf (NeRF): query Neural Radiance Field model
-        rx (Tensor): ray query position (B, 3)
+        ro (Tensor): ray query origin (B, 3)
         rd (Tensor): ray query direction (B, 3)
         tn (float): near plane
         tf (float): far plane
@@ -173,7 +173,7 @@ class BoundedVolumeRaymarcher:
 
         Arguments:
             nerf (NeRF): query Neural Radiance Field model
-            rx (Tensor): ray query position (B, 3)
+            ro (Tensor): ray query origin (B, 3)
             rd (Tensor): ray query direction (B, 3)
             perturb (Optional[bool]): peturb ray query segment (default: False)
             train (Optional[bool]): train or eval mode (default: False)
