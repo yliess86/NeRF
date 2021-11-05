@@ -17,7 +17,11 @@ from nerf.core.renderer import BoundedVolumeRaymarcher as BVR
 from nerf.utils.pbar import tqdm
 from prettytable import PrettyTable
 from time import time
+from torch.cuda.amp import autocast
 from typing import NamedTuple
+
+
+F16_BYTES, F32_BYTES = 2, 4
 
 
 class BenchmarkConfig(NamedTuple):
@@ -115,18 +119,22 @@ class BenchmarkInference(Benchmark):
         raymarcher (BVR): scene raymarcher
         config (BenchmarkConfig): benchmark config
         trials (int): number of trials (default: 100)
+        res (int): float resolution (default: 4)
     """
     
     def __init__(
         self,
         nerf: NeRF,
-        renderer: BVR,
+        raymarcher: BVR,
         config: BenchmarkConfig,
         trials: int = 100,
+        res: int = F32_BYTES,
     ) -> None:
         super().__init__(config, trials)
         self.nerf = nerf
         self.raymarcher = raymarcher
+        self.res = res
+
         self.device = next(nerf.parameters()).device
 
         self.ro = torch.rand((self.config.H * self.config.W, 3), device=self.device)
@@ -141,12 +149,13 @@ class BenchmarkInference(Benchmark):
         B = self.config.B
         n = self.ro.size(0)
 
-        for s in range(0, n, B):
-            e = min(s + B, n)
-            
-            ro, rd = self.ro[s:e], self.rd[s:e]
-            *_, D, C = self.raymarcher.render_volume(self.nerf, ro, rd)
-            self.rgb[s:e], self.depth[s:e] = C, D
+        with autocast(enabled=self.res == F16_BYTES):
+            for s in range(0, n, B):
+                e = min(s + B, n)
+                
+                ro, rd = self.ro[s:e], self.rd[s:e]
+                *_, D, C = self.raymarcher.render_volume(self.nerf, ro, rd)
+                self.rgb[s:e], self.depth[s:e] = C, D
 
         self.depth = self.depth.nan_to_num()
         self.depth = self.depth - self.depth.min()
@@ -163,6 +172,7 @@ def benchmark(
     W: int,
     batch_size: int,
     trials: int = 100,
+    res: int = F32_BYTES,
 ) -> str:
     """"Benchmark
 
@@ -171,6 +181,7 @@ def benchmark(
         raymarcher (BVR): scene raymarcher
         config (BenchmarkConfig): benchmark config
         trials (int): number of trials (default: 100)
+        res (int): float resolution (default: 4)
 
     Returns:
         summary (str): benchmark summary
@@ -178,7 +189,7 @@ def benchmark(
     args = nerf, raymarcher
 
     config = BenchmarkConfig(H, W, batch_size)
-    rec = BenchmarkInference(*args, config, trials).run()
+    rec = BenchmarkInference(*args, config, trials, res).run()
     format = lambda x: f"{x:.2f}"
 
     summary = PrettyTable()
@@ -188,13 +199,12 @@ def benchmark(
     return summary
 
 
-F32_BYTES = 4
-F16_BYTES = 2
 def size(nerf: NeRF, res: int = F32_BYTES) -> int:
     """Measure NeRF Size
 
     Arguments:
         nerf (NeRF): pretrained nerf
+        res (int): float resolution (default: 4)
 
     Returns:
         size (int): size in bytes
@@ -216,24 +226,35 @@ if __name__ == "__main__":
     parser.add_argument(      "--far",        type=float, default=6.,     help="Far Plane")
     parser.add_argument("-c", "--coarse",     type=int,   default=64,     help="Coarse samples")
     parser.add_argument("-f", "--fine",       type=int,   default=64,     help="Fine samples")
-    parser.add_argument("-b", "--batch_size", type=int,   default=16_384, help="Frame width")
+    parser.add_argument("-b", "--batch_size", type=int,   default=16_384, help="Batch Size")
     parser.add_argument("-t", "--trials",     type=int,   default=10,     help="Benchmark trials")
     parser.add_argument("-d", "--device",     type=int,   default=0,      help="Cuda GPU ID (-1 for CPU)")
     args = parser.parse_args()
 
     device = "cpu" if args.device < 0 else f"cuda:{args.device}"
     nerf = jit.load(args.input).to(device)
-    raymarcher = BVR(args.near, args.far, args.coarse, args.fine)
 
-    print(benchmark(
-        nerf,
-        raymarcher,
-        args.height,
-        args.width,
-        args.batch_size,
-        trials=args.trials,
-    ))
+    for name, res in [("f32", F32_BYTES), ("f16", F16_BYTES)]:
+        print(f"[Bench({name})] Model Size: {size(nerf, res=res) / 1e6:.2f} MB")
+        
+        print(f"[Bench({name})] Coarse Only")
+        print(benchmark(
+            nerf,
+            BVR(args.near, args.far, args.coarse, 0),
+            args.height,
+            args.width,
+            args.batch_size,
+            trials=args.trials,
+            res=res,
+        ))
 
-    f32_size = size(nerf, res=F32_BYTES) / 1e6
-    f16_size = size(nerf, res=F16_BYTES) / 1e6
-    print(f"[Bench] Model Size: {f32_size:.2f} MB (f32), {f16_size:.2f} MB (f16)")
+        print(f"[Bench({name})] Coarse and Fine")
+        print(benchmark(
+            nerf,
+            BVR(args.near, args.far, args.coarse, args.fine),
+            args.height,
+            args.width,
+            args.batch_size,
+            trials=args.trials,
+            res=res,
+        ))
