@@ -72,7 +72,7 @@ class NeRF(Module):
         x = torch.cat((phi_x, x), dim=-1) if self.resid else x
         x = self.fc_2(x)
 
-        sigma = self.sigma(x).unsqueeze(-1)
+        sigma = self.sigma(x).view(-1)
         rgb = self.rgb(torch.cat((phi_d, self.features(x)), dim=-1))
 
         return sigma, rgb
