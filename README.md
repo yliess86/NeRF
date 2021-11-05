@@ -56,11 +56,19 @@ data/
 
 *Command Line*
 
-|Action|Command|
-|:-----|:------|
-|Train |`python3 -m nerf.train`|
-|Inference | `python3 -m nerf.infer`|
-|Benchmark | `python3 -m nerf.bench`|
+|Action      |Command                  |
+|:-----------|:------------------------|
+|Train       |`python3 -m nerf.train`  |
+|Inference   |`python3 -m nerf.infer`  |
+|Distillation|`python3 -m nerf.distill`|
+|Benchmark   |`python3 -m nerf.bench`  |
+
+*Reproduction*
+
+|Action      |Command       |
+|:-----------|:-------------|
+|Train       |`make train`  |
+|Distillation|`make distill`|
 
 *Manual*
 
