@@ -1,3 +1,7 @@
+"""python3 -m nerf.train
+
+Design and Train NeRF model.
+"""
 import numpy as np
 import torch
 from nerf.core.features import FeatureMapping
@@ -177,7 +181,6 @@ NeRF.fit = fit
 
 
 if __name__ == "__main__":
-    import matplotlib.pyplot as plt
     import os
     import torch.jit as jit
 
@@ -186,59 +189,13 @@ if __name__ == "__main__":
     from nerf.core.features import FourierFeatures as FF, PositionalEncoding as PE
     from nerf.core.scheduler import IndendityScheduler, LogDecayScheduler, MipNeRFScheduler
     from nerf.data.blender import BlenderDataset
-    from nerf.infer import infer
     from nerf.reptile import reptile
-    from PIL import Image
+    from nerf.utils.callbacks import plot_train_callback, render_callback
     from torch.nn import MSELoss, LeakyReLU, ReLU, SiLU
     from torch.optim import Adam
 
 
     JOBS = cpu_count()
-    ACTIVATIONS = {a.__name__: a for a in [ReLU, LeakyReLU, SiLU]}
-
-
-    def SCHEDULER(optim: Optimizer, dataset: Dataset, args) -> Scheduler:
-        epochs_shift = .01 * args.epochs
-        steps_per_epoch = len(dataset) // args.batch_size
-        steps_per_epoch += 1 * (len(dataset) % args.batch_size > 0)
-        lr_range = args.lr * 1e-2, args.lr
-
-        if args.scheduler == "MipNeRF":
-            return MipNeRFScheduler(
-                optim,
-                args.epochs,
-                epochs_shift,
-                steps_per_epoch,
-                lr_range=lr_range,
-            )
-
-        if args.scheduler == "LogDecay":
-            return LogDecayScheduler(
-                optim,
-                args.epochs,
-                steps_per_epoch,
-                lr_range=lr_range,
-            )
-
-        return IndendityScheduler(optim, args.lr)
-
-
-    def MAPPING(input_dim: int, args) -> Tuple[FeatureMapping, FeatureMapping]:
-        if args.mapping == "FF":
-            return (
-                FF(input_dim, args.features_x, args.sigma_x),
-                FF(input_dim, args.features_d, args.sigma_d),
-            )
-
-        return PE(input_dim, args.freqs_x), PE(3, args.freqs_d)
-
-
-    APPLY_CBK = lambda epoch, args: (
-        epoch == 0 or
-        (epoch + 1) % args.log == 0 or
-        epoch == args.epochs -1
-    )
-
 
     parser = ArgumentParser(__doc__, formatter_class=RawDescriptionHelpFormatter)
     parser.add_argument("-i", "--input",         type=str,   required=True,       help="Blender Dataset Path")
@@ -268,11 +225,40 @@ if __name__ == "__main__":
     parser.add_argument("-r", "--reptile",                   action="store_true", help="Reptile Initialization")
     parser.add_argument(      "--reptile_steps", type=int,   default=16,          help="Reptile Initialization Steps")
     parser.add_argument(      "--amp",                       action="store_true", help="Automatic Mixted Precision")
-    parser.add_argument("-b", "--batch_size",    type=int,   default=4_096,       help="Frame width")
+    parser.add_argument("-b", "--batch_size",    type=int,   default=4_096,       help="Batch Size")
     parser.add_argument("-j", "--jobs",          type=int,   default=JOBS,        help="Number of Processes")
     parser.add_argument(      "--log",           type=int,   default=1,           help="Log Frequency")
     parser.add_argument("-d", "--device",        type=int,   default=0,           help="Cuda GPU ID (-1 for CPU)")
     args = parser.parse_args()
+
+
+    ACTIVATIONS = {a.__name__: a for a in [ReLU, LeakyReLU, SiLU]}
+
+    def SCHEDULER(optim: Optimizer, dataset: Dataset) -> Scheduler:
+        es = .01 * args.epochs
+        spe = len(dataset) // args.batch_size
+        spe += 1 * (len(dataset) % args.batch_size > 0)
+        lr = args.lr * 1e-2, args.lr
+
+        if args.scheduler == "MipNeRF":
+            scheduler = MipNeRFScheduler(optim, args.epochs, es, spe, lr_range=lr)
+        elif args.scheduler == "LogDecay":
+            scheduler = LogDecayScheduler(optim, args.epochs, spe, lr_range=lr)
+        else:
+            scheduler = IndendityScheduler(optim, args.lr)
+
+        return scheduler
+
+    def MAPPING(input_dim: int, args) -> Tuple[FeatureMapping, FeatureMapping]:
+        if args.mapping == "FF":
+            phi_x = FF(input_dim, args.features_x, args.sigma_x)
+            phi_d = FF(input_dim, args.features_d, args.sigma_d)
+        else:
+            phi_x = PE(input_dim, args.freqs_x)
+            phi_d = PE(3, args.freqs_d)
+
+        return phi_x, phi_d
+
 
     trainset = BlenderDataset(args.input, args.scene, split="train", step=args.step, scale=args.scale)
     valset   = BlenderDataset(args.input, args.scene, split="val",   step=args.step, scale=args.scale)
@@ -281,7 +267,7 @@ if __name__ == "__main__":
     device = "cpu" if args.device < 0 else f"cuda:{args.device}"
 
     nerf = NeRF(
-        *MAPPING(3, args),
+        *MAPPING(3),
         width=args.nerf_width,
         depth=args.nerf_depth,
         activ=ACTIVATIONS.get(args.nerf_activ, ReLU),
@@ -292,101 +278,32 @@ if __name__ == "__main__":
     criterion = MSELoss(reduction="mean").to(device)
 
     optim = Adam(nerf.parameters(), lr=args.lr, eps=1e-4 if args.amp else 1e-8)
-    scheduler = SCHEDULER(optim, trainset, args)
+    scheduler = SCHEDULER(optim, trainset)
     scaler = GradScaler(enabled=args.amp)
 
     if not os.path.isdir(args.output):
         os.makedirs(args.output, exist_ok=True)
 
 
-    MODEL_PATH = os.path.join(args.output, f"NeRF_{args.scene}.model.ts")
+    APPLY_CBK = lambda e, args: e == 0 or (e + 1) % args.log == 0 or e == args.epochs -1
+    
     def SAVE_CBK(epoch: int, history: History) -> None:
-        if APPLY_CBK(epoch, args): jit.save(jit.script(nerf), MODEL_PATH)
+        if APPLY_CBK(epoch, args):
+            path = os.path.join(args.output, f"NeRF_{args.scene}.model.ts")
+            jit.save(jit.script(nerf), path)
 
-
-    IMG_PATH = os.path.join(args.output, f"NeRF_{args.scene}.img.png")
-    H, W, C = valset.H, valset.W, 3
     def RENDER_CBK(epoch: int, history: History) -> None:
         if APPLY_CBK(epoch, args):
-            ro, rd = valset.ro[:H * W], valset.rd[:H * W]
-            depth, rgb = infer(nerf, raymarcher, ro, rd, H, W, batch_size=args.batch_size)
-            
-            depth, rgb = depth.numpy().astype(np.uint8), rgb.numpy().astype(np.uint8)
-            gt = (valset.C[:H * W].view(H, W, C) * 255).numpy().astype(np.uint8)
-            img = np.hstack((gt, rgb, depth))
+            data = valset.ro, valset.rd, valset.C
+            size = valset.H, valset.W, args.batch_size
+            path = os.path.join(args.output, f"NeRF_{args.scene}.img.png")
+            render_callback(nerf, raymarcher, *data, *size, path)
 
-            Image.fromarray(img).save(IMG_PATH)
-
-
-    PLOT_PATH = os.path.join(args.output, f"NeRF_{args.scene}.plot.png")
     def PLOT_CBK(epoch: int, history: History) -> None:
         if APPLY_CBK(epoch, args):
-            fig = plt.figure(figsize=(24, 4))
+            path = os.path.join(args.output, f"NeRF_{args.scene}.plot.png")
+            plot_train_callback(history, args.scene, path)
 
-            ax_mse = fig.add_subplot(131)
-            ax_psnr = fig.add_subplot(132)
-            ax_lr = fig.add_subplot(133)
-
-            ax_mse.set_title(f"NeRF {args.scene.capitalize()} MSE")
-            ax_psnr.set_title(f"NeRF {args.scene.capitalize()} PSNR")
-            ax_lr.set_title(f"NeRF {args.scene.capitalize()} Learning Rate")
-            
-            ax_mse.set_ylabel(f"MSE")
-            ax_psnr.set_ylabel(f"PSNR")
-            ax_lr.set_ylabel(f"LR")
-
-            ax_mse.set_xlabel("epochs")
-            ax_psnr.set_xlabel("epochs")
-            ax_lr.set_xlabel("steps")
-            
-            x = np.arange(1, len(history.train) + 1)
-            
-            if x.min() < x.max():
-                ax_mse.set_xlim((x.min(), x.max()))
-                ax_psnr.set_xlim((x.min(), x.max()))
-            
-            if len(history.train):
-                mse = np.array([datum[0] for datum in history.train])
-                psnr = np.array([datum[1] for datum in history.train])
-                
-                ax_mse.plot(x, mse, label="train")
-                ax_psnr.plot(x, psnr, label="train")
-                
-            if len(history.val):
-                mse = np.array([datum[0] for datum in history.val])
-                psnr = np.array([datum[1] for datum in history.val])
-                
-                ax_mse.plot(x, mse, label="val")
-                ax_psnr.plot(x, psnr, label="val")
-            
-            if history.test:
-                mse = np.array([history.test[0]] * len(history.train))
-                psnr = np.array([history.test[1]] * len(history.train))
-
-                ax_mse.plot(x, mse, label="test")
-                ax_psnr.plot(x, psnr, label="test")
-                
-            if len(history.lr):
-                x = np.arange(1, len(history.lr) + 1)
-                lr = np.array(history.lr)
-                
-                ax_lr.plot(x, lr)
-                ax_lr.set_xlim((x.min(), x.max()))
-
-            ax_lr.set_xscale("log")
-            ax_lr.set_yscale("log")
-
-            ax_mse.grid(linestyle="dotted")
-            ax_psnr.grid(linestyle="dotted")
-            ax_lr.grid(linestyle="dotted")
-            
-            ax_mse.legend()
-            ax_psnr.legend()
-
-            fig.tight_layout()
-            fig.canvas.draw()
-            fig.savefig(PLOT_PATH)
-        
 
     if args.reptile:
         reptile(

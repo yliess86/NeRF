@@ -2,7 +2,6 @@
 
 Render Turnaround a GIF using NeRF.
 """
-from moviepy.video.io.ImageSequenceClip import ImageSequenceClip
 import torch
 
 from nerf.core.model import NeRF
@@ -78,6 +77,7 @@ if __name__ == "__main__":
     from moviepy.editor import ImageSequenceClip
     from nerf.core.ray import pinhole_ray_directions, phinhole_ray_projection
     from nerf.data.path import turnaround_poses
+    from torch.cuda.amp import autocast
 
 
     CAM_ANGLE_X = 0.6194058656692505
@@ -85,7 +85,6 @@ if __name__ == "__main__":
 
     parser = ArgumentParser(__doc__, formatter_class=RawDescriptionHelpFormatter)
     parser.add_argument("-i", "--input",       type=str,   required=True,       help="TorchScript NeRF path")
-    parser.add_argument("-o", "--output",      type=str,   required=True,       help="Output GIF path")
     parser.add_argument(      "--height",      type=int,   default=800,         help="Frame height")
     parser.add_argument(      "--width",       type=int,   default=800,         help="Frame width")
     parser.add_argument(      "--near",        type=float, default=2.,          help="Near Plane")
@@ -93,10 +92,11 @@ if __name__ == "__main__":
     parser.add_argument(      "--cam_angle_x", type=float, default=CAM_ANGLE_X, help="Camera angle x to compute the camera focal length")
     parser.add_argument("-c", "--coarse",      type=int,   default=64,          help="Coarse samples")
     parser.add_argument("-f", "--fine",        type=int,   default=64,          help="Fine samples")
-    parser.add_argument("-b", "--batch_size",  type=int,   default=16_384,      help="Frame width")
+    parser.add_argument("-b", "--batch_size",  type=int,   default=16_384,      help="Batch size")
     parser.add_argument(      "--frames",      type=int,   default=100,         help="Number of frames to render")
     parser.add_argument(      "--fps",         type=int,   default=15,          help="FPS to render")
     parser.add_argument("-d", "--device",      type=int,   default=0,           help="Cuda GPU ID (-1 for CPU)")
+    parser.add_argument(      "--amp",                     action="store_true", help="Automatic Mixted Precision")
     args = parser.parse_args()
 
     device = "cpu" if args.device < 0 else f"cuda:{args.device}"
@@ -119,22 +119,23 @@ if __name__ == "__main__":
     depth_maps = np.zeros((args.frames, args.height, args.width, 3), dtype=np.uint8)
     rgb_maps = np.zeros((args.frames, args.height, args.width, 3), dtype=np.uint8)
 
-    depth_path = args.output.replace(".gif", "_depth.gif")
-    rgb_path = args.output.replace(".gif", "_rgb.gif")
+    depth_path = args.input.replace(".model.ts", ".depth.gif")
+    rgb_path = args.input.replace(".model.ts", ".rgb.gif")
 
     S = args.height * args.width
     frames = tqdm(range(0, args.frames * S, S), desc="[NeRF] Rendering Frame")
     for i, s in enumerate(frames):
-        depth_map, rgb_map = infer(
-            nerf,
-            raymarcher,
-            ros[s:s + S],
-            rds[s:s + S],
-            args.height,
-            args.width,
-            args.batch_size,
-            verbose=False,
-        )
+        with autocast(enabled=args.amp):
+            depth_map, rgb_map = infer(
+                nerf,
+                raymarcher,
+                ros[s:s + S],
+                rds[s:s + S],
+                args.height,
+                args.width,
+                args.batch_size,
+                verbose=False,
+            )
 
         depth_maps[i] = depth_map.numpy().astype(np.uint8)
         rgb_maps[i] = rgb_map.numpy().astype(np.uint8)
