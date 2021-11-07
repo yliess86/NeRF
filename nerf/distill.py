@@ -190,7 +190,10 @@ if __name__ == "__main__":
     parser.add_argument(      "--perturb",                action="store_true", help="Perturb along Ray")
     parser.add_argument("-c", "--coarse",     type=int,   default=64,          help="Coarse samples")
     parser.add_argument("-f", "--fine",       type=int,   default=64,          help="Fine samples")
-    parser.add_argument("-e", "--epochs",     type=int,   default=50,          help="Number of Epochs to train")
+    parser.add_argument(      "--nerf_width", type=int,   default=16,          help="Model Width")
+    parser.add_argument(      "--nerf_depth", type=int,   default=2,           help="Model Depth")
+    parser.add_argument(      "--nerf_resid",             action="store_true", help="Model enable Residual")
+    parser.add_argument("-e", "--epochs",     type=int,   default=10,          help="Number of Epochs to train")
     parser.add_argument("-b", "--batch_size", type=int,   default=4_096,       help="Batch Size")
     parser.add_argument("-j", "--jobs",       type=int,   default=JOBS,        help="Number of Processes")
     parser.add_argument(      "--log",        type=int,   default=LOG,         help="Log Frequency")
@@ -215,7 +218,13 @@ if __name__ == "__main__":
     device = "cpu" if args.device < 0 else f"cuda:{args.device}"
 
     teacher = jit.load(args.teacher).to(device)
-    student = NeRF(deepcopy(teacher.phi_x), deepcopy(teacher.phi_d), width=128, depth=2, resid=False).to(device)
+    student = NeRF(
+        deepcopy(teacher.phi_x),
+        deepcopy(teacher.phi_d),
+        width=args.nerf_width,
+        depth=args.nerf_depth,
+        resid=args.nerf_resid,
+    ).to(device)
     
     optim = Adam(student.parameters(), lr=args.lr, eps=1e-4 if args.amp else 1e-8)
     scheduler = SCHEDULER(optim)
@@ -281,15 +290,15 @@ if __name__ == "__main__":
     scheduler = SCHEDULER(optim, trainset)
     scaler = GradScaler(enabled=args.amp)
 
-    args.log = int(max(args.log * args.epcohs / args.steps, 1.))
-    APPLY_CBK = lambda e, args: e == 0 or (e + 1) % args.log == 0 or e == args.epochs -1
+    LOG = int(max(args.log * args.epochs / args.step, 1.))
+    APPLY_CBK = lambda e, args: e == 0 or (e + 1) % LOG == 0 or e == args.epochs -1
 
     def RENDER_CBK(epoch: int, history: History) -> None:
         if APPLY_CBK(epoch, args):
             data = valset.ro, valset.rd, valset.C
             size = valset.H, valset.W, args.batch_size
             path = os.path.join(args.output, f"NeRF_{args.scene}.img.png")
-            render_callback(student, raymarcher, *data, *size, path)
+            render_callback(student, student, raymarcher, *data, *size, path)
 
     def PLOT_CBK(epoch: int, history: History) -> None:
         if APPLY_CBK(epoch, args):

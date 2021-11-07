@@ -12,7 +12,8 @@ from torch import Tensor
 
 @torch.inference_mode()
 def infer(
-    nerf: NeRF,
+    coarse: NeRF,
+    fine: NeRF,
     raymarcher: BVR,
     ro: Tensor,
     rd: Tensor,
@@ -24,7 +25,8 @@ def infer(
     """Neural radiance field inference (render frame)
 
     Arguments:
-        nerf (NeRF): neural radiance field model
+        coarse (NeRF): coarse neural radiance field model
+        fine (NeRF): fine neural radiance field model
         raymarcher (BVR): bounded volume raymarcher
         ro (Tensor): rays origin (B, 3)
         rd (Tensor): rays direction (B, 3)
@@ -37,7 +39,7 @@ def infer(
         depth_map (Tensor): rendered depth map [0, 255] (H, W, 3)
         rgb_map (Tensor): rendered rgb map [0, 255] (H, W, 3)
     """
-    d = next(nerf.parameters()).device
+    d = next(coarse.parameters()).device
     n = ro.size(0)
     
     ro, rd = ro.to(d), rd.to(d)
@@ -48,7 +50,7 @@ def infer(
     batches = range(0, n, batch_size)
     for s in tqdm(batches, desc="[NeRF] Rendering", disable=not verbose):
         e = min(s + batch_size, n)
-        *_, D, C = raymarcher.render_volume(nerf, ro[s:e], rd[s:e], train=False)
+        *_, D, C = raymarcher.render_volume(coarse, fine, ro[s:e], rd[s:e], train=False)
         
         depth_map[s:e] = D.cpu()
         rgb_map[s:e] = C.cpu()
@@ -84,23 +86,25 @@ if __name__ == "__main__":
 
 
     parser = ArgumentParser(__doc__, formatter_class=RawDescriptionHelpFormatter)
-    parser.add_argument("-i", "--input",       type=str,   required=True,       help="TorchScript NeRF path")
-    parser.add_argument(      "--height",      type=int,   default=800,         help="Frame height")
-    parser.add_argument(      "--width",       type=int,   default=800,         help="Frame width")
-    parser.add_argument(      "--near",        type=float, default=2.,          help="Near Plane")
-    parser.add_argument(      "--far",         type=float, default=6.,          help="Far Plane")
-    parser.add_argument(      "--cam_angle_x", type=float, default=CAM_ANGLE_X, help="Camera angle x to compute the camera focal length")
-    parser.add_argument("-c", "--coarse",      type=int,   default=64,          help="Coarse samples")
-    parser.add_argument("-f", "--fine",        type=int,   default=64,          help="Fine samples")
-    parser.add_argument("-b", "--batch_size",  type=int,   default=16_384,      help="Batch size")
-    parser.add_argument(      "--frames",      type=int,   default=100,         help="Number of frames to render")
-    parser.add_argument(      "--fps",         type=int,   default=15,          help="FPS to render")
-    parser.add_argument("-d", "--device",      type=int,   default=0,           help="Cuda GPU ID (-1 for CPU)")
-    parser.add_argument(      "--amp",                     action="store_true", help="Automatic Mixted Precision")
+    parser.add_argument("-i", "--input",       type=str,   required=True,       nargs="+", help="TorchScript - NeRF path | Coarse and Fine NeRF paths ")
+    parser.add_argument(      "--height",      type=int,   default=800,                    help="Frame height")
+    parser.add_argument(      "--width",       type=int,   default=800,                    help="Frame width")
+    parser.add_argument(      "--near",        type=float, default=2.,                     help="Near Plane")
+    parser.add_argument(      "--far",         type=float, default=6.,                     help="Far Plane")
+    parser.add_argument(      "--cam_angle_x", type=float, default=CAM_ANGLE_X,            help="Camera angle x to compute the camera focal length")
+    parser.add_argument("-c", "--coarse",      type=int,   default=64,                     help="Coarse samples")
+    parser.add_argument("-f", "--fine",        type=int,   default=64,                     help="Fine samples")
+    parser.add_argument("-b", "--batch_size",  type=int,   default=16_384,                 help="Batch size")
+    parser.add_argument(      "--frames",      type=int,   default=100,                    help="Number of frames to render")
+    parser.add_argument(      "--fps",         type=int,   default=15,                     help="FPS to render")
+    parser.add_argument("-d", "--device",      type=int,   default=0,                      help="Cuda GPU ID (-1 for CPU)")
+    parser.add_argument(      "--amp",                     action="store_true",            help="Automatic Mixted Precision")
     args = parser.parse_args()
 
     device = "cpu" if args.device < 0 else f"cuda:{args.device}"
-    nerf = jit.load(args.input).to(device)
+    
+    coarse, fine = args.input[:2] if len(args.input) > 1 else (args.input * 2)[:2]
+    coarse, fine = jit.load(coarse).to(device), jit.load(fine).to(device)
     raymarcher = BVR(args.near, args.far, args.coarse, args.fine)
      
     ranges = (-np.pi, np.pi), (-np.pi, np.pi), (-np.pi, np.pi), (4., 4.)
@@ -119,15 +123,16 @@ if __name__ == "__main__":
     depth_maps = np.zeros((args.frames, args.height, args.width, 3), dtype=np.uint8)
     rgb_maps = np.zeros((args.frames, args.height, args.width, 3), dtype=np.uint8)
 
-    depth_path = args.input.replace(".model.ts", ".depth.gif")
-    rgb_path = args.input.replace(".model.ts", ".rgb.gif")
+    depth_path = args.input[0].replace(".model.ts", ".depth.gif")
+    rgb_path = args.input[0].replace(".model.ts", ".rgb.gif")
 
     S = args.height * args.width
     frames = tqdm(range(0, args.frames * S, S), desc="[NeRF] Rendering Frame")
     for i, s in enumerate(frames):
         with autocast(enabled=args.amp):
             depth_map, rgb_map = infer(
-                nerf,
+                coarse,
+                fine,
                 raymarcher,
                 ros[s:s + S],
                 rds[s:s + S],

@@ -73,7 +73,7 @@ def step(
             C, ro, rd = C.to(d), ro.to(d), rd.to(d)
 
             with autocast(enabled=scaler.is_enabled()):
-                *_, C_ = raymarcher.render_volume(nerf, ro, rd, perturb=perturb, train=train)
+                *_, C_ = raymarcher.render_volume(nerf, nerf, ro, rd, perturb=perturb, train=train)
                 loss = criterion(C_, C)
             
             if train:
@@ -297,7 +297,7 @@ if __name__ == "__main__":
             data = valset.ro, valset.rd, valset.C
             size = valset.H, valset.W, args.batch_size
             path = os.path.join(args.output, f"NeRF_{args.scene}.img.png")
-            render_callback(nerf, raymarcher, *data, *size, path)
+            render_callback(nerf, nerf, raymarcher, *data, *size, path)
 
     def PLOT_CBK(epoch: int, history: History) -> None:
         if APPLY_CBK(epoch, args):

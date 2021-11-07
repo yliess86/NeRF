@@ -65,10 +65,12 @@ data/
 
 *Reproduction*
 
-|Action      |Command       |
-|:-----------|:-------------|
-|Train       |`make train`  |
-|Distillation|`make distill`|
+|Action      |Command         |
+|:-----------|:---------------|
+|Train       |`make train`    |
+|Distillation|`make distill`  |
+|Hybrid      |`make hybrid`   |
+|Benchmark   |`make bench_all`|
 
 *Manual*
 
@@ -107,7 +109,8 @@ history = nerf.fit(
 
 # ==== Infer
 frame = nerf.infer(
-    nerf,                 # NeRF Module
+    coarse,               # coarse NeRF Module
+    fine,                 # fine NeRF Module
     raymarcher,           # Raymarcher (BVR)
     ro,                   # Rays Origin (Tensor of size (B, 3))
     rd,                   # Rays Direction (Tensor of size (B, 3))
@@ -255,6 +258,12 @@ A total of `N_c + N_f` is finally used to generate the last render, this time qu
 |Ficus|![ficus_gt](docs/imgs/ficus/gt.png)|![ficus_rgb_map](docs/imgs/ficus/rgb_map.gif)|![ficus_depth_map](docs/imgs/ficus/depth_map.gif)|
 |Ship|![ship_gt](docs/imgs/ship/gt.png)|![ship_rgb_map](docs/imgs/ship/rgb_map.gif)|![ship_depth_map](docs/imgs/ship/depth_map.gif)|
 
+*Using 64 Coarse Samples, 64 Fine Samples at 400x400 Resolution*
+|Coarse     |Fine       |Seconds| FPS|RGB Map|Depth Map|
+|:----------|:----------|------:|---:|:-----:|:-------:|
+|NeRF       |NeRF       |   1.91|0.52|![vanilla_rgb](docs/imgs/bench/vanilla/rgb_map.gif)|![vanilla_depth](docs/imgs/bench/vanilla/depth_map.gif)|
+|DistillNeRF|NeRF       |   1.37|0.73|![hybrid_rgb](docs/imgs/bench/hybrid/rgb_map.gif)|![hybrid_depth](docs/imgs/bench/hybrid/depth_map.gif)|
+|DistillNeRF|DistillNeRF|   0.30|3.36|![distill_rgb](docs/imgs/bench/distill/rgb_map.gif)|![distill_depth](docs/imgs/bench/distill/depth_map.gif)|
 
 <span id="citation"></span>
 ## Citation

@@ -10,7 +10,8 @@ from PIL import Image
 
 
 def render_callback(
-    nerf: NeRF,
+    coarse: NeRF,
+    fine: NeRF,
     raymarcher: BVR,
     ro: Tensor,
     rd: Tensor,
@@ -23,7 +24,8 @@ def render_callback(
     """Render Callback
     
     Arguments:
-        nerf (NeRF): neural radiance field model
+        coarse (NeRF): coarse neural radiance field model
+        fine (NeRF): fine neural radiance field model
         raymarcher (BoundedVolumeRaymarcher): bounded volume raymarcher renderer
         ro (Tensor): ray origins (B, 3)
         rd (Tensor): ray directions (B, 3)
@@ -34,7 +36,7 @@ def render_callback(
         path (str): path where to save the render
     """
     ro, rd = ro[:H * W], rd[:H * W]
-    depth, rgb = infer(nerf, raymarcher, ro, rd, H, W, batch_size=batch_size)
+    depth, rgb = infer(coarse, fine, raymarcher, ro, rd, H, W, batch_size=batch_size)
     depth, rgb = depth.numpy().astype(np.uint8), rgb.numpy().astype(np.uint8)
     gt = (C[:H * W].view(H, W, 3) * 255).numpy().astype(np.uint8)
     Image.fromarray(np.hstack((gt, rgb, depth))).save(path)

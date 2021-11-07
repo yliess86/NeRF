@@ -115,7 +115,8 @@ class BenchmarkInference(Benchmark):
     """"Inference Benchmark
 
     Arguments:
-        nerf (NeRF): pretrained nerf
+        coarse (NeRF): coarse pretrained nerf
+        fine (NeRF): fine pretrained nerf
         raymarcher (BVR): scene raymarcher
         config (BenchmarkConfig): benchmark config
         trials (int): number of trials (default: 100)
@@ -124,18 +125,20 @@ class BenchmarkInference(Benchmark):
     
     def __init__(
         self,
-        nerf: NeRF,
+        coarse: NeRF,
+        fine: NeRF,
         raymarcher: BVR,
         config: BenchmarkConfig,
         trials: int = 100,
         res: int = F32_BYTES,
     ) -> None:
         super().__init__(config, trials)
-        self.nerf = nerf
+        self.coarse = coarse
+        self.fine = fine
         self.raymarcher = raymarcher
         self.res = res
 
-        self.device = next(nerf.parameters()).device
+        self.device = next(coarse.parameters()).device
 
         self.ro = torch.rand((self.config.H * self.config.W, 3), device=self.device)
         self.rd = torch.rand((self.config.H * self.config.W, 3), device=self.device)
@@ -154,7 +157,7 @@ class BenchmarkInference(Benchmark):
                 e = min(s + B, n)
                 
                 ro, rd = self.ro[s:e], self.rd[s:e]
-                *_, D, C = self.raymarcher.render_volume(self.nerf, ro, rd)
+                *_, D, C = self.raymarcher.render_volume(self.coarse, self.fine, ro, rd)
                 self.rgb[s:e], self.depth[s:e] = C, D
 
         self.depth = self.depth.nan_to_num()
@@ -166,7 +169,8 @@ class BenchmarkInference(Benchmark):
 
 
 def benchmark(
-    nerf: NeRF,
+    coarse: NeRF,
+    fine: NeRF,
     raymarcher: BVR,
     H: int,
     W: int,
@@ -177,7 +181,8 @@ def benchmark(
     """"Benchmark
 
     Arguments:
-        nerf (NeRF): pretrained nerf
+        coarse (NeRF): coarse pretrained nerf
+        fine (NeRF): fine pretrained nerf
         raymarcher (BVR): scene raymarcher
         config (BenchmarkConfig): benchmark config
         trials (int): number of trials (default: 100)
@@ -186,7 +191,7 @@ def benchmark(
     Returns:
         summary (str): benchmark summary
     """
-    args = nerf, raymarcher
+    args = coarse, fine, raymarcher
 
     config = BenchmarkConfig(H, W, batch_size)
     rec = BenchmarkInference(*args, config, trials, res).run()
@@ -219,27 +224,32 @@ if __name__ == "__main__":
 
 
     parser = ArgumentParser(__doc__, formatter_class=RawDescriptionHelpFormatter)
-    parser.add_argument("-i", "--input",      type=str,   required=True,  help="TorchScript NeRF path")
-    parser.add_argument(      "--height",     type=int,   default=800,    help="Frame height")
-    parser.add_argument(      "--width",      type=int,   default=800,    help="Frame width")
-    parser.add_argument(      "--near",       type=float, default=2.,     help="Near Plane")
-    parser.add_argument(      "--far",        type=float, default=6.,     help="Far Plane")
-    parser.add_argument("-c", "--coarse",     type=int,   default=64,     help="Coarse samples")
-    parser.add_argument("-f", "--fine",       type=int,   default=64,     help="Fine samples")
-    parser.add_argument("-b", "--batch_size", type=int,   default=16_384, help="Batch Size")
-    parser.add_argument("-t", "--trials",     type=int,   default=10,     help="Benchmark trials")
-    parser.add_argument("-d", "--device",     type=int,   default=0,      help="Cuda GPU ID (-1 for CPU)")
+    parser.add_argument("-i", "--input",      type=str,   required=True,  nargs="+", help="TorchScript - NeRF path | Coarse and Fine NeRF paths ")
+    parser.add_argument(      "--height",     type=int,   default=800,               help="Frame height")
+    parser.add_argument(      "--width",      type=int,   default=800,               help="Frame width")
+    parser.add_argument(      "--near",       type=float, default=2.,                help="Near Plane")
+    parser.add_argument(      "--far",        type=float, default=6.,                help="Far Plane")
+    parser.add_argument("-c", "--coarse",     type=int,   default=64,                help="Coarse samples")
+    parser.add_argument("-f", "--fine",       type=int,   default=64,                help="Fine samples")
+    parser.add_argument("-b", "--batch_size", type=int,   default=16_384,            help="Batch Size")
+    parser.add_argument("-t", "--trials",     type=int,   default=10,                help="Benchmark trials")
+    parser.add_argument("-d", "--device",     type=int,   default=0,                 help="Cuda GPU ID (-1 for CPU)")
     args = parser.parse_args()
 
     device = "cpu" if args.device < 0 else f"cuda:{args.device}"
-    nerf = jit.load(args.input).to(device)
+    
+    print(args.input)
+    coarse, fine = args.input[:2] if len(args.input) > 1 else (args.input * 2)[:2]
+    coarse, fine = jit.load(coarse).to(device), jit.load(fine).to(device)
 
     for name, res in [("f32", F32_BYTES), ("f16", F16_BYTES)]:
-        print(f"[Bench({name})] Model Size: {size(nerf, res=res) / 1e6:.2f} MB")
+        print(f"[Bench({name})] Coarse Model Size: {size(coarse, res=res) / 1e6:.2f} MB")
+        print(f"[Bench({name})] Fine Model Size: {size(fine, res=res) / 1e6:.2f} MB")
         
         print(f"[Bench({name})] Coarse Only")
         print(benchmark(
-            nerf,
+            coarse,
+            fine,
             BVR(args.near, args.far, args.coarse, 0),
             args.height,
             args.width,
@@ -250,7 +260,8 @@ if __name__ == "__main__":
 
         print(f"[Bench({name})] Coarse and Fine")
         print(benchmark(
-            nerf,
+            coarse,
+            fine,
             BVR(args.near, args.far, args.coarse, args.fine),
             args.height,
             args.width,

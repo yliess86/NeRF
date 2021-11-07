@@ -4,7 +4,7 @@ import torch.jit as jit
 from nerf.core.model import NeRF
 from nerf.core.ray import pdf_rays as prays, uniform_bounded_rays as ubrays
 from torch import Tensor
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Union
 
 
 @jit.script
@@ -31,13 +31,15 @@ def raymarch_volume(
     sigma: Tensor,
     rgb: Tensor,
     delta: Tensor,
-) -> Tuple[Tensor, Tensor]:
+    weights_only: bool,
+) -> Tuple[Tensor, Union[Tensor, None]]:
     """Raymarch into volume given radiance field data
     
     Arguments:
         sigma (Tensor): density at volume query (B, N)
         rgb (Tensor): color at volume query (B, N, 3)
         delta (Tensor): segments lengths (B, N)
+        weights_only (bool): compute weights only (rgb_map will be set to None)
 
     Returns:
         weights (Tensor): absorbtion weights for each ray (B, N)
@@ -48,8 +50,11 @@ def raymarch_volume(
     alpha = 1. - torch.exp(-sigma * delta)
     trans = exclusive_cumprod(1. - alpha + EPS)
     weights = alpha * trans
-    rgb_map = torch.sum(weights[:, :, None] * rgb, dim=-2)
-    return weights, rgb_map
+
+    if weights_only:
+        return weights, None
+    
+    return weights, torch.sum(weights[:, :, None] * rgb, dim=-2)
 
 
 def render_volume_coarse(
@@ -60,7 +65,8 @@ def render_volume_coarse(
     tf: float, 
     samples: int,
     perturb: bool,
-) -> Tuple[Tensor, Tensor, Tensor]:
+    weights_only: bool,
+) -> Tuple[Tensor, Tensor, Union[Tensor, None]]:
     """Render implicit coarse volume given ray infos
 
     Arguments:
@@ -71,6 +77,7 @@ def render_volume_coarse(
         tf (float): far plane
         samples (int): number of coarse samples along the ray
         perturb (bool): peturb ray query segment
+        weights_only (bool): compute weights only (rgb_map will be set to None)
 
     Returns:
         t (Tensor): z-values from near to far (B, N)
@@ -85,13 +92,14 @@ def render_volume_coarse(
     sigma = sigma.view(B, Nc)
     rgb = rgb.view(B, Nc, 3)
 
-    weights, rgb_map = raymarch_volume(sigma, rgb, delta)
+    weights, rgb_map = raymarch_volume(sigma, rgb, delta, weights_only)
 
     return t, weights, rgb_map
 
 
 def render_volume_fine(
-    nerf: NeRF,
+    coarse: NeRF,
+    fine: NeRF,
     ro: Tensor,
     rd: Tensor,
     tn: float, 
@@ -104,7 +112,8 @@ def render_volume_fine(
     """Render implicit refined volume given ray infos
 
     Arguments:
-        nerf (NeRF): query Neural Radiance Field model
+        coarse (NeRF): coarse query Neural Radiance Field model
+        fine (NeRF): fine query Neural Radiance Field model
         ro (Tensor): ray query origin (B, 3)
         rd (Tensor): ray query direction (B, 3)
         tn (float): near plane
@@ -121,16 +130,16 @@ def render_volume_fine(
     """
     B, Nc, Nf = ro.size(0), samples_c, samples_f
 
-    if train: nerf.requires_grad(False)
-    t, weights, _ = render_volume_coarse(nerf, ro, rd, tn ,tf, Nc, perturb)
+    if train: coarse.requires_grad(False)
+    t, weights, _ = render_volume_coarse(coarse, ro, rd, tn ,tf, Nc, perturb, weights_only=True)
     rx, rds, t, delta = prays(ro, rd, t, weights, Nf, perturb)
 
-    if train: nerf.requires_grad(True)
-    sigma, rgb = nerf(rx, rds)
+    if train: fine.requires_grad(True)
+    sigma, rgb = fine(rx, rds)
     sigma = sigma.view(B, Nc + Nf)
     rgb = rgb.view(B, Nc + Nf, 3)
 
-    weights, rgb_map = raymarch_volume(sigma, rgb, delta)
+    weights, rgb_map = raymarch_volume(sigma, rgb, delta, weights_only=False)
 
     return t, weights, rgb_map
 
@@ -163,7 +172,8 @@ class BoundedVolumeRaymarcher:
 
     def render_volume(
         self,
-        nerf: NeRF,
+        coarse: NeRF,
+        fine: NeRF,
         ro: Tensor,
         rd: Tensor,
         perturb: Optional[bool] = False,
@@ -172,7 +182,8 @@ class BoundedVolumeRaymarcher:
         """Render implicit volume given ray infos
 
         Arguments:
-            nerf (NeRF): query Neural Radiance Field model
+            coarse (NeRF): coarse query Neural Radiance Field model
+            fine (NeRF): fine query Neural Radiance Field model
             ro (Tensor): ray query origin (B, 3)
             rd (Tensor): ray query direction (B, 3)
             perturb (Optional[bool]): peturb ray query segment (default: False)
@@ -187,8 +198,8 @@ class BoundedVolumeRaymarcher:
         Nc, Nf = self.samples_c, self.samples_f
         bounds = self.tn, self.tf
         
-        if Nf > 0: t, weights, rgb_map = render_volume_fine(nerf, ro, rd, *bounds, Nc, Nf, perturb, train)
-        else: t, weights, rgb_map = render_volume_coarse(nerf, ro, rd, *bounds, Nc, perturb)
+        if Nf > 0: t, weights, rgb_map = render_volume_fine(coarse, fine, ro, rd, *bounds, Nc, Nf, perturb, train)
+        else: t, weights, rgb_map = render_volume_coarse(coarse, ro, rd, *bounds, Nc, perturb, False)
         depth_map = torch.sum(weights * t, dim=-1)
 
         return t, weights, depth_map, rgb_map
